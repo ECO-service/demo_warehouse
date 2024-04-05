@@ -204,7 +204,7 @@ DBBACKUP_STORAGE = 'django.core.files.storage.FileSystemStorage'
 DBBACKUP_CLEANUP_KEEP = True
 DBBACKUP_CLEANUP_KEEP_NUMBER = 3  # Số lượng bản sao lưu giữ lại
 DBBACKUP_STORAGE_OPTIONS = {
-    'location': '/root/eco_warehouse/backup/', 
+    'location': '/root/eco_service/warehouse/backup/', 
 }
 
 
