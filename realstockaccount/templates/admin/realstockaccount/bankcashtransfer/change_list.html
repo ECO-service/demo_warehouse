@@ -1,0 +1,6 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+    {{ block.super }}
+    <div id="total-amount" style="position: absolute;top: 12rem;right: 2.8rem;font-weight: bold;color: #15bd3c;margin-top: 10px;">Tổng tiền cuối kỳ: {{ cl.total_amount }}</div>
+{% endblock %}

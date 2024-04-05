@@ -1,0 +1,15 @@
+.history/
+
+*pycache/
+*/__pycache__/
+env
+.env
+.envs
+
+.vscode
+
+/static
+
+*/migrations/*
+!*/migrations/__init__.py
+
