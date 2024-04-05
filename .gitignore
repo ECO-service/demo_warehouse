@@ -9,7 +9,7 @@ env
 .vscode
 
 /static
-
+/log
 */migrations/*
 !*/migrations/__init__.py
 

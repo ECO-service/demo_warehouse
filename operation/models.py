@@ -17,6 +17,7 @@ from django.contrib.auth.hashers import make_password
 from regulations.models import *
 from accfifo import Entry, FIFO
 import asyncio
+import logging
 
 
 
@@ -270,7 +271,12 @@ class Account (models.Model):
             # Thêm user vào nhóm "customer"
             group, created = Group.objects.get_or_create(name='customer')
             user.groups.add(group)
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
 
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 #Tạo model với các ngăn tất toán của tài khoản
 class AccountMilestone(models.Model):
     account = models.ForeignKey(Account,on_delete=models.CASCADE,verbose_name="Tài khoản")
@@ -341,6 +347,15 @@ class CashTransfer(models.Model):
     
     def __str__(self):
         return str(self.amount) 
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Ghi log khi có hoạt động lưu
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
     
     
 
@@ -424,6 +439,12 @@ class Transaction (models.Model):
             self.previous_total_value = self._original_total_value
 
         super(Transaction, self).save(*args, **kwargs)
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 
 
         
@@ -455,6 +476,15 @@ class ExpenseStatement(models.Model):
 
     def __str__(self):
         return str(self.type) + str('_')+ str(self.date)
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Ghi log khi có hoạt động lưu
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 
 class Portfolio (models.Model):
     account = models.ForeignKey(Account,on_delete=models.CASCADE, null=False, blank=False, verbose_name = 'Tài khoản' )
@@ -494,6 +524,12 @@ class Portfolio (models.Model):
             self.percent_profit = round((self.market_price/self.avg_price-1)*100,2)
             self.market_value = self.market_price*self.sum_stock
         super(Portfolio, self).save(*args, **kwargs)
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 
 
 

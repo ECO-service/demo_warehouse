@@ -16,6 +16,11 @@ from .jazzmin import *
 from datetime import timedelta, datetime as dt
 from dotenv import load_dotenv
 
+import logging
+from logging.handlers import RotatingFileHandler
+
+
+
 # Load environment variables from file
 load_dotenv()
 
@@ -209,6 +214,26 @@ def custom_backup_filename(databasename, servername, extension,datetime, content
     return f"{formatted_datetime}.{extension}"
 
 DBBACKUP_FILENAME_TEMPLATE = custom_backup_filename
+
+# lưu log
+# Định nghĩa thư mục log
+LOG_DIR = os.path.join(BASE_DIR, 'log')
+
+# Tạo thư mục log nếu nó chưa tồn tại
+if not os.path.exists(LOG_DIR):
+    os.makedirs(LOG_DIR)
+
+# Cấu hình logging
+logging.basicConfig(
+    level=logging.DEBUG,  # Đặt cấp độ của root logger là DEBUG
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',  # Định dạng thông điệp log
+    handlers=[
+        RotatingFileHandler(os.path.join(LOG_DIR, 'django.log'), maxBytes=1024*1024, backupCount=5),  # Ghi log vào file
+        logging.StreamHandler()  # Ghi log ra console
+    ]
+)
+
+
 
 CRONJOBS = [
     ('0 1 * * *', 'stockwarehouse.schedule.schedule_morning'),# chạy lúc 7 giờ sáng

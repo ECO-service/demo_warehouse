@@ -5,6 +5,7 @@ from operation.models import Account, PartnerInfo
 from realstockaccount import *
 from django.db.models.signals import post_save, post_delete,pre_save, pre_delete
 from django.dispatch import receiver
+import logging
 
 # Create your models here.
 class RealStockAccountCashTransfer(models.Model):
@@ -154,6 +155,12 @@ class RealStockAccount(models.Model):
         self.cash_balance = self.net_cash_flow_operation + self.cash_balance_open_account+ self.total_deposit_fee +self.total_loan_interest + self.total_deposit_interest_paid
         self.nav = self.market_value + self.cash_balance
         super(RealStockAccount, self).save(*args, **kwargs)
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {} ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 
 class ExpenseStatementRealStockAccount(models.Model):
     POSITION_CHOICES = [

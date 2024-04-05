@@ -123,6 +123,12 @@ class AccountPartner (models.Model):
         self.total_temporarily_pl= self.nav - self.net_cash_flow
         self.total_pl  = self.total_temporarily_pl + self.total_closed_pl
         super(AccountPartner, self).save(*args, **kwargs)
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {} ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 
 
    
@@ -156,6 +162,16 @@ class ExpenseStatementPartner(models.Model):
 
     def __str__(self):
         return str(self.type) + str('_')+ str(self.date)
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Ghi log khi có hoạt động lưu
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 
 class PortfolioPartner (models.Model):
     account = models.ForeignKey(AccountPartner,on_delete=models.CASCADE, null=False, blank=False, verbose_name = 'Tài khoản' )
@@ -195,6 +211,12 @@ class PortfolioPartner (models.Model):
             self.percent_profit = round((self.market_price/self.avg_price-1)*100,2)
             self.market_value = self.market_price*self.sum_stock
         super(PortfolioPartner, self).save(*args, **kwargs)
+        logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
+
+    def delete(self, *args, **kwargs):
+        # Ghi log khi có hoạt động xóa
+        logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
+        super().delete(*args, **kwargs)
 
 class TransactionPartnerManager(models.Manager):
     def get_queryset(self):
