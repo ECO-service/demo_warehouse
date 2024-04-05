@@ -1,0 +1,58 @@
+<!-- sell_stock.html -->
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+<!-- jQuery UI -->
+<link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+<script>
+  $(document).ready(function () {
+    // Kích hoạt date picker cho trường selling_date
+    $('#id_selling_date').datepicker({
+    dateFormat: 'dd-mm-yy',
+    changeMonth: true,
+    changeYear: true,
+    minDate: 0, // Chỉ cho phép chọn từ ngày hiện tại trở đi
+    yearRange: '-100:+0',
+    });
+
+    // Handle form submission with AJAX
+    $('form#selling-form').submit(function(e){
+        e.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: '{% url "assumption_sell_stock" account.pk portfolio.pk %}',
+            data: $(this).serialize(),
+            success: function(response) {
+                // Display the results in a modal or popup
+                alert("Lợi nhuận ròng: " + response['Lợi nhuận ròng'] 
+                + "\nThuế: " + response['Thuế']
+                + "\nPhí giao dịch: " + response['Phí giao dịch']
+                + "\nLãi vay: " + response['Lãi vay']
+                + "\nPhí ứng tiền bán: " + response['Phí ứng tiền bán']
+                
+               
+                
+                );
+                
+            },
+            error: function(error) {
+                console.log(error);
+            }
+        });
+    });
+  });
+</script>
+
+<h2>Tính lợi nhuận khi bán cổ phiếu </h2>
+Cổ Phiếu: {{portfolio.stock}}
+<form method="post" id="selling-form">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <button type="submit">Tính toán</button>
+</form>
+<td colspan="9">
+<a href="{% url 'customer_detail' account.pk %}">Quay lại trang chủ</a>
+</td>

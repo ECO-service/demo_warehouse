@@ -1,0 +1,94 @@
+{% extends 'admin/base_site.html' %}
+{% block content %}
+
+<head>
+    <title>Khối lượng mua và Cập nhật giá</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.1.5/dist/sweetalert2.min.js"></script>
+</head>
+
+<body>
+    <h1>Khối lượng mua tối đa theo kho</h1> <br>
+    <form id="calculate-form" method="POST">
+        {% csrf_token %}
+        <label for="account">Tài khoản:</label>
+        <input type="number" id="account" name="account"><br><br>
+        <label for="ticker">Mã cổ phiếu:</label>
+        <input type="text" id="ticker" name="ticker"><br><br>
+        <label for="price">Giá mua:</label>
+        <input type="number" id="price" name="price"><br><br>
+        <button type="submit">Tính toán</button>
+    </form>
+
+    <br> <!-- Thêm dòng mới tại đây -->
+
+    <h1>Cập nhật giá</h1>
+    <button id="execute-btn">Cập nhật</button>
+    <ul id="stock-list"></ul>
+
+    <script>
+        $(document).ready(function() {
+            // Xử lý form tính toán khối lượng mua
+            $('#calculate-form').submit(function(event) {
+                event.preventDefault();
+                var account = parseFloat($('#account').val());
+                var ticker = $('#ticker').val();
+                var price = parseFloat($('#price').val());
+
+                if (!account || !ticker || !price) {
+                    alert('Vui lòng nhập đủ thông số đầu vào');
+                    return;
+                }
+
+                var R = 0.03 * account;
+                $.ajax({
+                    type: 'POST',
+                    url: '',
+                    data: {
+                        'account': account,
+                        'ticker': ticker,
+                        'price': price,
+                        'action': 'calculate_max_qty_buy',  // Đặt action để xác định loại yêu cầu
+                        'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
+                    },
+                    success: function(data) {
+                        alert('Khối lượng là: ' + data.qty);
+                    },
+                    error: function() {
+                        alert('Đã có lỗi xảy ra.');
+                    }
+                });
+            });
+
+            // Xử lý nút cập nhật giá
+            $('#execute-btn').click(function() {
+                // Hiển thị popup "Đang lấy dữ liệu"
+                Swal.fire({
+                    title: 'Đang lấy dữ liệu',
+                    allowOutsideClick: false,
+                    onBeforeOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                // Gửi yêu cầu POST đến view 'get-price'
+                $.post('', {'action': 'update_market_price', 'csrfmiddlewaretoken': '{{ csrf_token }}'}, function(data) {
+                    // Ẩn popup khi yêu cầu thành công
+                    Swal.close();
+
+                    // Hiển thị thông báo cập nhật giá thành công
+                    showSuccessPopup();
+                }).fail(function(xhr, status, error) {
+                    // Ẩn popup khi yêu cầu thất bại và hiển thị popup lỗi
+                    Swal.close();
+                    Swal.fire({
+                        title: 'Có lỗi xảy ra',
+                        text: 'Lỗi: ' + error,
+                        icon: 'error'
+                    });
+                });
+            });
+        });
+    </script>
+
+{% endblock %}

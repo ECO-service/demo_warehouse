@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Home</title>
+    <style>
+        a:link,
+        a:visited {
+            background-color: white;
+            color: black;
+            border: 2px solid rgb(86, 91, 86);
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        a:hover,
+        a:active {
+            background-color: #eee;
+            color: white;
+        }
+
+        .lay-out {
+            display: flex;
+            justify-content: space-between;
+            padding-top: 10px;
+
+
+        }
+        .lay-out .lay-out-tabs{
+            display: flex;
+            align-items: center;
+        }
+
+        .lay-out .header {
+            display: flex;
+            justify-content: right;
+            align-items: center;
+        }
+
+        .lay-out .header h2 {
+            margin-right: 8px;
+            font-size: 20px;
+        }
+
+        .lay-out .header a {
+            margin-right: 8px;
+            font-size: 15px;
+        }
+        body {
+            font-family: "Arimo", sans-serif;
+            margin: 20px;
+            
+        }
+
+        .tab-content {
+            display: none;
+            margin-top: 2rem;
+            margin-left: 2rem;
+            font-size: 15px;
+        }
+
+        .active {
+            display: block;
+          
+        }
+
+        ul.tabs {
+            list-style: none;
+            padding: 0.5rem;
+            margin: 0;
+            display: flex;
+            font-size: 15px;
+        }
+
+        ul.tabs li {
+            margin-right: 0.5rem;
+            margin-left: 0.5rem; 
+            cursor: pointer;
+            padding: 10px;
+            background-color: #eee;
+            border-radius: 7px;
+            
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+       
+        
+   
+        
+    </style>
+</head>
+
+<body>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản lý tài khoản chứng khoán</title>
+
+    </head>
+
+    <body>
+        <div class="lay-out">
+            <div class="lay-out-tabs">
+                <ul class="tabs">
+                    <li onclick="showTab('account')">Tài khoản</li>
+                    <li onclick="showTab('portfolio')">Danh mục</li>
+                    <li onclick="showTab('transactions')">Sổ lệnh</li>
+                    <li onclick="showTab('statement_cash')">Sao kê tiền</li>
+                    <li onclick="showTab('statement')">Sao kê phí</li>
+                    <li onclick="showTab('loanPortfolio')">Danh mục cho vay</li>
+                    <li onclick="showTab('caltradingpower')">Tính sức mua</li>
+                </ul>
+            </div>
+
+            <div class="header">
+                <h2>Xin chào TK {{user.username}} </h2>
+                <div>
+                    <a href="/logout">Đăng xuất</a>
+                </div>
+                <div>
+                    <a href="{% url 'change_password' %}">Đổi mật khẩu</a>
+                </div>
+            </div>
+        </div>
+
+        <div id="account" class="tab-content active">
+          
+            <h2>Thông tin tài khoản</h2>
+
+            <table>
+                <tr>
+                    <td>Mã tài khoản:</td>
+                    <td id="pk">{{account.pk}}</td>
+                </tr>
+                <tr>
+                    <td>Tên:</td>
+                    <td id="pk">{{account.name}}</td>
+                </tr>
+                <tr>
+                    <td>Số dư tiền:</td>
+                    <td id="balance">{{account.cash_balance|format_currency_0}}</td>
+                </tr>
+                <tr>
+                    <td>Số dư tiền tính lãi vay:</td>
+                    <td id="interest_cash">{{account.interest_cash_balance|format_currency_0}}</td>
+                </tr>
+                <tr>
+                    <td>Tài sản ròng:</td>
+                    <td id="nav">{{account.nav|format_currency_0}}</td>
+                </tr>
+                <tr>
+                    <td>Giá trị thị trường:</td>
+                    <td id="market_value">{{account.market_value|format_currency_0}}</td>
+                </tr>
+
+                <tr>
+                    <td>Dư kí quỹ:</td>
+                    <td id="excess_equity">{{account.excess_equity|format_currency_0}}</td>
+                </tr>
+                <tr>
+                    <td>Tỷ lệ margin:</td>
+                    <td id="marginRatio">{{account.margin_ratio}}%</td>
+                </tr>
+                <tr>
+                    <td>Tổng lãi lỗ:</td>
+                    <td id="profitLoss">{{account.total_pl|format_currency_0}}</td>
+                </tr>
+                <tr>
+                    <td>Trạng thái tài khoản:</td>
+                    <td id="status">
+                        {% if account.status %}
+                            {{ account.status }}
+                        {% else %}
+                            Bình thường
+                        {% endif %}
+                    </td>
+                </tr>
+                
+            </table>
+        </div>
+
+        <div id="portfolio" class="tab-content">
+            <h2>Danh mục</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Cổ phiếu</th>
+                        <th>Giá thị trường</th>
+                        <th>Giá trung bình</th>
+                        <th>Khối lượng khả dụng</th>
+                        <th>Khối lượng chờ về T1</th>
+                        <th>Khối lượng chờ về T2</th>
+                        <th>Lời lỗ</th>
+                        <th>Tỷ lệ lời lỗ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if port %}
+                        {% for item in port %}
+                            <tr>
+                                <td class="no">{{ forloop.counter }}</td>
+                                <td class="stock">{{ item.stock }}</td>
+                                <td class="market_price">{{ item.market_price|format_currency_0 }}</td>
+                                <td class="avg_price">{{ item.avg_price|format_currency_0 }}</td>
+                                <td class="unit">{{ item.on_hold|format_currency_0 }}</td>
+                                <td class="unit">{{ item.receiving_t1|format_currency_0 }}</td>
+                                <td class="unit">{{ item.receiving_t2|format_currency_0 }}</td>
+                                <td class="profit">{{ item.profit|format_currency_0 }}</td>
+                                <td class="percent_profit">{{ item.percent_profit|format_currency_2}}%</td>
+                            </tr>
+
+                            <td colspan="9">
+                                <a href="{% url 'assumption_sell_stock' pk=account.id port_pk=item.id %}">Tính toán giả định</a>
+
+                                <br>
+                                <span style="font-size: 80%; color: #555;">
+                                    Chú thích: Để tính toán lợi nhuận giả định theo giá bán tùy chỉnh
+                                </span>
+                            </td>
+                        {% endfor %}
+                        
+                        
+                        
+                        
+                    {% else %}
+                        <tr>
+                            <td colspan="9"><em>Chưa có dữ liệu</em></td>
+                        </tr>
+                    {% endif %}
+                    
+                    <!-- Additional row for "Tính toán giả định" -->
+                 
+                    
+
+                    
+                    <!-- Add additional rows for other stocks as needed -->
+                </tbody>
+            </table>
+        </div>
+        
+
+        <div id="transactions" class="tab-content">
+            <h2>Sổ lệnh</h2>
+            <!-- <label for="startDate">Từ ngày:</label>
+    <input type="text" id="startDate" placeholder="dd-mm-yyyy">
+    <label for="endDate">Đến ngày:</label>
+    <input type="text" id="endDate" placeholder="dd-mm-yyyy">
+    <button onclick="filterTransactions()">Lọc</button> -->
+            <table>
+                <tr>
+                    <th>Ngày</th>
+                    <th>Cổ phiếu</th>
+                    <th>Mua/Bán</th>
+                    <th>Giá mua</th>
+                    <th>Khối lượng</th>
+                    <th>Phí giao dịch</th>
+                    <th>Thuế</th>
+                    <th>Tổng giá trị</th>
+
+
+                </tr>
+                {% if transaction %}
+                    {% for item in transaction %}
+                        <tr>
+                            <td>{{ item.date|date:"d/m/Y" }}</td>
+                            <td>{{ item.stock }}</td>
+                            <td>{{ item.get_position_display }}</td>
+                            <td>{{ item.price|format_currency_0 }}</td>
+                            <td>{{ item.qty|format_currency_0 }}</td>
+                            <td>{{ item.transaction_fee|format_currency_0 }}</td>
+                            <td>{{ item.tax|format_currency_0 }}</td>
+                            <td>{{ item.total_value|format_currency_0 }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+    <tr>
+        <td colspan="8"><em>Chưa có dữ liệu</em></td>
+    </tr>
+{% endif %}
+
+                <!-- Thêm các dòng cho sổ lệnh khác tùy ý -->
+            </table>
+        </div>
+
+        <div id="statement_cash" class="tab-content">
+            <h2>Sao kê tiền</h2>
+            <table>
+                <tr>
+                    <th>Ngày</th>
+                    <th>Nạp/Rút</th>
+                    <th>Số tiền</th>
+                    <th>Diễn giải</th>
+                </tr>
+
+                {% if cash %}
+                    {% for item in cash %}
+                        <tr>
+                            <td>{{ item.date|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if item.amount > 0 %}
+                                    Nạp tiền
+                                {% else %}
+                                    Rút tiền
+                                {% endif %}
+                            </td>
+                            <td>{{ item.amount|format_currency_0 }}</td>
+                            <td>{{ item.description }}</td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="4"><em>Chưa có dữ liệu</em></td>
+                    </tr>
+                {% endif %}
+
+                <!-- Thêm các dòng cho sao kê phí khác tùy ý -->
+            </table>
+        </div>
+
+        <div id="statement" class="tab-content">
+            <h2>Sao kê phí</h2>
+            <table>
+                <tr>
+                    <th>Ngày</th>
+                    <th>Loại phí</th>
+                    <th>Số tiền</th>
+                    <th>Diễn giải</th>
+                </tr>
+                {% if expense %}
+    {% for item in expense %}
+        <tr>
+            <td>{{ item.date|date:"d/m/Y" }}</td>
+            <td>{{ item.get_type_display }}</td>
+            <td>{{ item.amount|format_currency_0 }}</td>
+            <td>{{ item.description }}</td>
+        </tr>
+    {% endfor %}
+{% else %}
+    <tr>
+        <td colspan="4"><em>Chưa có dữ liệu</em></td>
+    </tr>
+{% endif %}
+
+                <!-- Thêm các dòng cho sao kê phí khác tùy ý -->
+            </table>
+        </div>
+
+        <div id="loanPortfolio" class="tab-content">
+            <h2>Danh mục cho vay</h2>
+            <input type="text" id="searchInput" placeholder="Tìm kiếm theo mã cổ phiếu" onkeyup="searchStock()">
+            <table>
+                <tr>
+                    <th>Mã cổ phiếu</th>
+                    <th>Tỷ lệ kí quỹ (%)</th>
+                    <!-- Thêm các cột khác tùy ý -->
+                </tr>
+                {% for item in list_margin %}
+                <tr>
+                    <td>{{item.stock}}</td>
+                    <td>{{item.initial_margin_requirement}}</td>
+                    <!-- Thêm các cột cho mã cổ phiếu khác tùy ý -->
+                </tr>
+                {% endfor %}
+                <!-- Thêm các dòng cho danh mục cho vay khác tùy ý -->
+            </table>
+        </div>
+
+
+        <!-- <title>Calculate Trading Power</title> -->
+    
+        <!-- Thêm thư viện Bootstrap -->
+         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"> 
+        <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    
+        <!-- Đoạn mã JavaScript để kiểm tra và hiển thị modal -->
+<!-- Đoạn mã JavaScript để kiểm tra và hiển thị modal -->
+<!-- Đoạn mã JavaScript để kiểm tra và hiển thị modal -->
+
+<style>
+    .modal {
+        display: none;
+    }
+</style>
+
+<script>
+    $(document).ready(function () {
+        var hasResult = false; // Biến để kiểm tra có kết quả hay không
+
+        $('#calculate-form').submit(function (event) {
+            // Ngăn chặn gửi yêu cầu mặc định của biểu mẫu
+            event.preventDefault();
+
+            // Lấy dữ liệu từ biểu mẫu
+            var formData = {
+                'action': $('input[name=action]').val(),
+                'ticker': $('#ticker').val(),
+                'price': $('#price').val(),
+                'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()  // Include CSRF token
+            };
+
+            // Gửi yêu cầu AJAX
+            $.ajax({
+                type: 'POST',
+                url: $(this).attr('action'),
+                data: formData,
+                success: function (data) {
+                    // Xử lý kết quả từ server
+                    if ('qty' in data) {
+                        // Hiển thị kết quả trong modal Bootstrap
+                        $('#result-modal .modal-body').text('Số lượng tối đa có thể mua: ' + data.qty);
+
+                        // Hiển thị modal
+                        $('#result-modal').modal('show');
+
+                        // Đặt biến hasResult thành true
+                        hasResult = true;
+
+
+                    } else {
+                        // Ẩn modal nếu không có kết quả hoặc lỗi
+                        $('#result-modal').modal('hide');
+                        
+                        // Đặt biến hasResult thành false
+                        hasResult = false;
+
+                        // Ẩn modal-header và modal-footer
+                        $('#result-modal .modal-header').hide();
+                        $('#result-modal .modal-footer').hide();
+                    }
+                },
+                error: function (xhr, textStatus, errorThrown) {
+                    // Xử lý lỗi AJAX
+                    console.log('Error:', errorThrown);
+                }
+            });
+        });
+
+        // Ẩn modal khi đóng chỉ nếu không có kết quả
+        $('#result-modal').on('hidden.bs.modal', function () {
+            if (!hasResult) {
+                // Xóa nội dung modal khi ẩn
+                $(this).find('.modal-body').empty();
+            }
+        });
+    });
+</script>
+
+
+
+        
+
+    <div id="caltradingpower" class="tab-content">
+        <!-- <h2>Khối lượng mua tối đa theo kho</h2> -->
+        <form id="calculate-form" method="POST" action="{% url 'cal_trading_power_customer' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="calculate_max_qty_buy">
+    
+            <label for="ticker">Mã cổ phiếu:</label>
+            <input type="text" id="ticker" name="ticker" placeholder="Nhập mã CP" required><br><br>
+    
+            <label for="price">Giá mua:</label>
+            <input type="number" id="price" name="price" placeholder="Nhập giá đầy đủ" required><br><br>
+    
+            <button type="submit">Tính toán</button>
+        </form>
+    </div>
+    
+    <!-- Modal Bootstrap -->
+    <div class="modal" id="result-modal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Kết quả tính toán</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <!-- Nội dung kết quả sẽ được hiển thị ở đây -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+        
+
+        <!-- Lọc từ ngày đến ngày-->
+        <!-- <script>
+    function filterTransactions() {
+        var startDate = document.getElementById("startDate").value;
+        var endDate = document.getElementById("endDate").value;
+
+        startDate = convertDateFormat(startDate);
+        endDate = convertDateFormat(endDate);
+
+        var table = document.querySelector("#transactions table");
+        var rows = table.getElementsByTagName("tr");
+
+        for (var i = 1; i < rows.length; i++) {
+            var rowDate = new Date(rows[i].cells[0].textContent);
+
+            if (startDate && rowDate < new Date(startDate)) {
+                rows[i].style.display = "none";
+            } else if (endDate && rowDate > new Date(endDate)) {
+                rows[i].style.display = "none";
+            } else {
+                rows[i].style.display = "";
+            }
+        }
+    }
+
+    function convertDateFormat(dateString) {
+        if (dateString) {
+            var parts = dateString.split("-");
+            return parts[2] + "-" + parts[1] + "-" + parts[0];
+        }
+        return "";
+    }
+</script> -->
+        <!-- Thêm tìm kiếm stock danh mục cho vay -->
+
+        <script>
+            function searchStock() {
+                var input, filter, table, tr, td, i, txtValue;
+                input = document.getElementById("searchInput");
+                filter = input.value.toUpperCase();
+                table = document.querySelector("#loanPortfolio table");
+                tr = table.getElementsByTagName("tr");
+
+                for (i = 1; i < tr.length; i++) {
+                    td = tr[i].getElementsByTagName("td")[0];
+                    if (td) {
+                        txtValue = td.textContent || td.innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = "";
+                        } else {
+                            tr[i].style.display = "none";
+                        }
+                    }
+                }
+            }
+        </script>
+
+        <script>
+            function showTab(tabId) {
+                const tabs = document.querySelectorAll('.tab-content');
+                tabs.forEach(tab => tab.classList.remove('active'));
+
+                const selectedTab = document.getElementById(tabId);
+                selectedTab.classList.add('active');
+            }
+        </script>
+
+
+
+
+    </body>
+
+</html>
