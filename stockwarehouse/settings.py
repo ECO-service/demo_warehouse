@@ -245,4 +245,16 @@ CRONJOBS = [
     ('0 2 * * *', 'python manage.py dbbackup'),  # Thực hiện backup cơ sở dữ liệu mỗi ngày lúc 2 giờ sáng
 ]
 
-
+CRONJOBS = [
+# Chạy lúc 7 giờ sáng
+('0 7 * * *', 'stockwarehouse.schedule.schedule_morning'),
+# Chạy lúc 7 giờ 15 phút sáng
+('15 7 * * *', 'operation.processing.calculate_interest'),
+# Chạy từ 9 đến 15 giờ, cách 2 giờ chạy 1 lần (trong ngày từ thứ Hai đến thứ Sáu)
+('0 */2 9-15 * 1-5', 'stockwarehouse.schedule.get_info_stock_price_filter'),
+# Chạy lúc 11 giờ 30 phút sáng (trong ngày từ thứ Hai đến thứ Sáu)
+('30 11 * * 1-5', 'stockwarehouse.schedule.schedule_mid_trading_date'),
+# Từ 9 giờ 10 phút đến 14 giờ 25 phút mỗi ngày cách nhau 15 phút (trong ngày từ thứ Hai đến thứ Sáu)
+('10-25/15 9-14 * * 1-5', 'stockwarehouse.schedule.get_info_stock_price_stock_68'),
+]
+ 
