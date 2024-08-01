@@ -237,7 +237,8 @@ class Account (models.Model):
         market_value = 0
         if port:
             for item in port:
-                initial_margin = stock_mapping.get(item.stock, 0) * item.sum_stock * item.avg_price / 100
+                total_value_buy = item.sum_stock * item.avg_price
+                initial_margin = stock_mapping.get(item.stock, 0) * total_value_buy / 100
                 sum_initial_margin += initial_margin
                 market_value += item.market_value
         self.margin_ratio = 0
@@ -247,11 +248,11 @@ class Account (models.Model):
         self.excess_equity = self.nav - self.initial_margin_requirement
         self.advance_cash_balance = (self.cash_t1 + self.cash_t2)*-1
         if self.market_value != 0:
-            self.margin_ratio = abs(round((self.nav / self.market_value) * 100, 2))
+            self.margin_ratio = abs(round((self.nav / total_value_buy) * 100, 2))
         self.total_temporarily_pl= self.nav - self.net_cash_flow
         self.total_pl  = self.total_temporarily_pl + self.total_closed_pl
-        bot = Bot(token='5806464470:AAH9bLZxhx6xXDJ9rlPKkhaJ6lKpKRrZEfA')
-        chat_id ='-4055438156'
+        # bot = Bot(token='5806464470:AAH9bLZxhx6xXDJ9rlPKkhaJ6lKpKRrZEfA')
+        # chat_id ='-4055438156'
         # if self.status:
         #     noti = f"Tài khoản {self.pk}, tên {self.name} bị {self.status} "
         #     asyncio.run(send_notification(bot,chat_id,noti))
