@@ -228,6 +228,7 @@ class Account (models.Model):
     
     def save(self, *args, **kwargs):
     # Your first save method code
+        print('bắt đầu save')
         self.total_loan_interest = self.total_temporarily_interest + self.total_interest_paid
         self.total_advance_fee = self.total_temporarily_advance_fee + self.total_advance_fee_paid
         self.cash_balance = self.net_cash_flow + self.net_trading_value + self.total_temporarily_interest + self.total_temporarily_advance_fee
@@ -258,6 +259,7 @@ class Account (models.Model):
         #     asyncio.run(send_notification(bot,chat_id,noti))
 
         # Your second save method code
+        print('kết thúc save')
         super(Account, self).save(*args, **kwargs)
 
         # Additional code from the second save method
@@ -531,7 +533,3 @@ class Portfolio (models.Model):
         # Ghi log khi có hoạt động xóa
         logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
         super().delete(*args, **kwargs)
-
-
-
-   
