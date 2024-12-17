@@ -259,4 +259,4 @@ CRONJOBS = [
 ]
 
 DJANGO_CRONTAB_LOCK_JOBS = True
-CRONTAB_COMMENT = 'warehouse'
+CRONTAB_COMMENT = 'demo_warehouse'
