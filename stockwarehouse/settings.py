@@ -257,4 +257,6 @@ CRONJOBS = [
 # Từ 9 giờ 10 phút đến 14 giờ 25 phút mỗi ngày cách nhau 15 phút (trong ngày từ thứ Hai đến thứ Sáu)
 ('10-25/15 9-14 * * 1-5', 'stockwarehouse.schedule.get_info_stock_price_stock_68'),
 ]
- 
+
+DJANGO_CRONTAB_LOCK_JOBS = True
+CRONTAB_COMMENT = 'warehouse'
