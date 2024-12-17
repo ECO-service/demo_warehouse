@@ -44,7 +44,7 @@ JAZZMIN_SETTINGS = {
         # external url that opens in a new window (Permissions can be added)
         # {"name": "Tính khối lượng", "url": "http://ecotrading.com.vn/calculator-qty", "new_window": True},
         # {"name": "Lọc cổ phiếu", "url":"http://ecotrading.com.vn/get_signal/", "new_window": True},
-        {"name": "Tính khối lượng mua", "url":"http://ecotrading.com.vn/warehouse", "new_window": True},
+        {"name": "Tính khối lượng mua", "url":"http://klc.io.vn/warehouse", "new_window": True},
         # model admin to link to (Permissions checked against model)
         # {"model": "order.Cart"},
 

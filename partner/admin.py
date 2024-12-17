@@ -138,6 +138,8 @@ class TransationPartnerAdmin(admin.ModelAdmin):
         }),
        
     )
+    list_filter = ['account__partner__name','account__account',]
+    
     def has_add_permission(self, request):
         # Return False to disable the "Add" button
         return False
