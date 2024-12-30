@@ -236,10 +236,12 @@ class Account (models.Model):
         port = Portfolio.objects.filter(account=self.pk, sum_stock__gt=0)
         sum_initial_margin = 0
         market_value = 0
+        total_value_buy=0
         if port:
             for item in port:
-                total_value_buy = item.sum_stock * item.avg_price
-                initial_margin = stock_mapping.get(item.stock, 0) * total_value_buy / 100
+                value_buy = item.sum_stock * item.avg_price
+                total_value_buy +=value_buy
+                initial_margin = stock_mapping.get(item.stock, 0) * value_buy / 100
                 sum_initial_margin += initial_margin
                 market_value += item.market_value
         self.margin_ratio = 0
