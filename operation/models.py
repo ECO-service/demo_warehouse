@@ -20,37 +20,18 @@ import asyncio
 import logging
 
 
+def send_notification(bot_token, chat_id,message):
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    data = {'chat_id': chat_id, 'text': message}
+    
+    response = requests.post(url, data=data)
+    
+    if response.status_code == 200:
+        print("Message sent successfully.")
+    else:
+        print("Failed to send message.")
 
-# maintenance_margin_ratio = OperationRegulations.objects.get(pk=4).parameters
-# force_sell_margin_ratio = OperationRegulations.objects.get(pk=5).parameters
-maintenance_margin_ratio =17
-force_sell_margin_ratio =13
 
-# def get_default_parameters(pk):
-#     try:
-#         return OperationRegulations.objects.get(pk=pk).parameters
-#     except OperationRegulations.DoesNotExist:
-#         # Trả về giá trị mặc định nếu không tìm thấy đối tượng
-#         return 0.0  # hoặc giá trị mặc định của bạn
-
-# def get_interest_fee_default():
-#     return get_default_parameters(pk=3)
-
-# def get_transaction_fee_default():
-#     return get_default_parameters(pk=1)
-
-# def get_tax_fee_default():
-#     return get_default_parameters(pk=2)
-
-# def get_credit_limit_default():
-#     return get_default_parameters(pk=6)
-
-async def send_notification(bot,chat_id,noti):
-    # Mã khởi tạo bot và các mã khác ở đây
-    chat_id =chat_id 
-    text = noti
-    # Sử dụng await để thực hiện coroutine
-    await bot.send_message(chat_id=chat_id, text=text)
 
 def cal_avg_price(account,stock, date_time): 
     item_transactions = Transaction.objects.filter(account=account, stock__stock = stock, created_at__gt =date_time).order_by('date','created_at')
@@ -154,12 +135,12 @@ class Account (models.Model):
     description = models.TextField(max_length=255, blank=True, verbose_name= 'Mô tả')
     cpd = models.ForeignKey(ClientPartnerInfo,null=True, blank = True,on_delete=models.CASCADE, verbose_name= 'Người giới thiệu' )
     #biểu phí dịch vụ
-    # interest_fee = models.FloatField(default=get_interest_fee_default, verbose_name='Lãi suất')
-    # transaction_fee = models.FloatField(default=get_transaction_fee_default, verbose_name='Phí giao dịch')
-    # tax = models.FloatField(default=get_tax_fee_default, verbose_name='Thuế')
-    interest_fee = models.FloatField(default=0, verbose_name='Lãi suất')
-    transaction_fee = models.FloatField(default=0, verbose_name='Phí giao dịch')
-    tax = models.FloatField(default=0, verbose_name='Thuế')
+    interest_fee = models.FloatField(default=0.1314, verbose_name='Lãi suất')
+    interest_days_in_year = models.PositiveSmallIntegerField(default=365, verbose_name="Số ngày tính lãi trong năm")
+    transaction_fee = models.FloatField(default=0.0015, verbose_name='Phí giao dịch')
+    tax = models.FloatField(default=0.001, verbose_name='Thuế')
+    maintenance_margin_ratio =models.FloatField(default=0.17, verbose_name='Tỷ lệ gọi kí quỹ')
+    force_sell_margin_ratio =models.FloatField(default=0.13, verbose_name='Tỷ lệ giải chấp')
     # Phục vụ tính tổng cash_balace:
     net_cash_flow= models.FloatField(default=0,verbose_name= 'Nạp rút tiền ròng')
     net_trading_value= models.FloatField(default=0,verbose_name= 'Giao dịch ròng')
@@ -211,16 +192,16 @@ class Account (models.Model):
     @property
     def status(self):
         check = self.margin_ratio
-        value_force = round((maintenance_margin_ratio - self.margin_ratio)*self.market_value/100,0)
+        value_force = round((self.maintenance_margin_ratio - self.margin_ratio)*self.market_value/100,0)
         value_force_str = '{:,.0f}'.format(value_force)
         status = ""
         port = Portfolio.objects.filter(account_id = self.pk, sum_stock__gt=0).first()
         if port:
             price_force_sell = round(-self.cash_balance/( 0.87* port.sum_stock),0)
             if abs(self.cash_balance) >1000 and value_force !=0:
-                if check <= maintenance_margin_ratio and check >force_sell_margin_ratio:
+                if check <= self.maintenance_margin_ratio and check >self.force_sell_margin_ratio:
                     status = f"CẢNH BÁO, số âm {value_force_str}, giá bán {port.stock}: {'{:,.0f}'.format(price_force_sell)}"
-                elif check <= force_sell_margin_ratio:
+                elif check <= self.force_sell_margin_ratio:
                     status = f"GIẢI CHẤP {'{:,.0f}'.format(value_force*5)}, giá bán {port.stock}:\n{'{:,.0f}'.format(price_force_sell)}"
 
                 return status
@@ -251,7 +232,7 @@ class Account (models.Model):
         self.excess_equity = self.nav - self.initial_margin_requirement
         self.advance_cash_balance = (self.cash_t1 + self.cash_t2)*-1
         if self.market_value != 0:
-            self.margin_ratio = abs(round((self.nav / total_value_buy) * 100, 2))
+            self.margin_ratio = abs(round((self.nav / total_value_buy), 2))
         self.total_temporarily_pl= self.nav - self.net_cash_flow
         self.total_pl  = self.total_temporarily_pl + self.total_closed_pl
         # bot = Bot(token='5806464470:AAH9bLZxhx6xXDJ9rlPKkhaJ6lKpKRrZEfA')
@@ -402,8 +383,10 @@ class Transaction (models.Model):
         self._original_total_value =self.total_value
     
     def clean(self):
-        if self.price < 0: 
-            raise ValidationError('Lỗi giá phải lớn hơn 0')
+        if self.price < 1000: 
+            raise ValidationError('Lỗi giá phải nhập đủ phần nghìn')
+        if self.qty < 100: 
+            raise ValidationError('Khối lượng bị lẻ')
           
         if self.position == 'sell':
             port = Portfolio.objects.filter(account = self.account, stock =self.stock).first()

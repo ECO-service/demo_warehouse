@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'jazzmin',
     'rest_framework',
     'debug_toolbar',
+    'import_export',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',

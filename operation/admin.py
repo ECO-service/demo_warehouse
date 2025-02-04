@@ -39,7 +39,7 @@ class AccountAdmin(admin.ModelAdmin):
     list_display = ['name', 'id', 'formatted_cash_balance', 'formatted_interest_cash_balance', 'formatted_market_value', 'formatted_nav', 'margin_ratio','formatted_excess_equity','formatted_total_temporarily_pl', 'custom_status_display','interest_payments']
     fieldsets = [
         ('Thông tin cơ bản', {'fields': ['name','cpd','user_created','description']}),
-        ('Biểu phí tài khoản', {'fields': ['interest_fee', 'transaction_fee', 'tax','credit_limit']}),
+        ('Biểu phí tài khoản', {'fields': ['interest_fee','interest_days_in_year', 'transaction_fee', 'tax','credit_limit','maintenance_margin_ratio','force_sell_margin_ratio']}),
         ('Trạng thái tài khoản', {'fields': ['cash_balance', 'interest_cash_balance','advance_cash_balance','net_cash_flow','net_trading_value','market_value','nav','initial_margin_requirement','margin_ratio','excess_equity','custom_status_display','milestone_date_lated']}),
         ('Thông tin lãi và phí ứng', {'fields': ['total_loan_interest','total_interest_paid','total_temporarily_interest','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee']}),
         ('Hiệu quả đầu tư', {'fields': ['total_pl','total_closed_pl','total_temporarily_pl',]}),
@@ -255,8 +255,140 @@ class TransactionForm(forms.ModelForm):
     #             raise ValidationError("Bạn không có quyền sửa đổi các bản ghi được tạo ngày trước đó.")
     #     return cleaned_data
     
+from import_export.admin import ImportExportModelAdmin
+from import_export.resources import ModelResource
+from import_export.formats.base_formats import XLSX
+from import_export.widgets import ForeignKeyWidget
+from import_export.fields import Field
+from django.utils.timezone import now
+
+class CustomStockWidget(ForeignKeyWidget):
+    """Dò tìm StockListMargin bằng tên hoặc mã cổ phiếu"""
+    def clean(self, value, row=None, *args, **kwargs):
+        return self.model.objects.filter(stock=value).first()
+
+class TransactionResource(ModelResource):
+    stock = Field(
+        column_name='stock',
+        attribute='stock',
+        widget=CustomStockWidget(StockListMargin, field='stock')  # Tìm theo name hoặc symbol
+    )
+
+    class Meta:
+        model = Transaction
+        import_id_fields = []  
+        skip_unchanged = True
+        report_skipped = False
+        use_bulk = True  # Tăng tốc độ import bằng bulk_create
+
+    def before_import_row(self, row, **kwargs):
+        
+        """Kiểm tra dữ liệu trước khi import"""
+        required_fields = ['date','partner','account', 'stock', 'position', 'price', 'qty']
+        
+        # Kiểm tra trường bắt buộc không được để trống
+        for field in required_fields:
+            if not row.get(field):
+                raise ValidationError(f"Lỗi: Trường '{field}' không được để trống.")
+            
+        """Chuyển đổi dữ liệu trước khi import"""
+        position_map = {
+            "mua": "buy",
+            "bán": "sell",
+            "buy": "buy",
+            "sell": "sell"
+        }
+        
+        # Chuẩn hóa vị trí giao dịch
+        position = row.get("position", "").strip().lower()
+
+        if position not in position_map:
+            raise ValidationError(f"Lỗi: Giá trị position '{position}' không hợp lệ. Chỉ chấp nhận: {', '.join(position_map.keys())}")
+
+        row["position"] = position_map[position]
+
+        """Gán user đang đăng nhập vào user_created và user_modified"""
+        request = kwargs.get('request')  # Lấy request để lấy user
+        if request and request.user.is_authenticated:
+            row["user_created"] = request.user.id
+            row["user_modified"] = None
+        # Tự động gán created_at theo thời gian hiện tại nếu chưa có
+        if not row.get("created_at"):
+            row["created_at"] = now()
+
+        # Để trống modified_at
+        row["modified_at"] = None  
+
+        """Trả lỗi nếu không tìm được account"""
+        account_id = row.get("account")
+        account = Account.objects.filter(id=row.get("account")).first()
+        if not account:
+            raise ValidationError(f"Không tìm thấy tài khoản: {account_id}")
+        row["account"] = account.id
+        # Kiểm tra đối tác (partner) (nếu có cột partner)
+        partner_id = row.get("partner")
+        if partner_id:
+            partner = PartnerInfo.objects.filter(id=partner_id).first()
+            if not partner:
+                raise ValidationError(f"Không tìm thấy đối tác: {partner_id}")
+            row["partner"] = partner.id  # Chuyển sang ID để import
+
+        """Tính toán giá trị dựa theo logic save của model"""
+        request = kwargs.get('request')
+        if request and request.user.is_authenticated:
+            row["user_created"] = request.user.id
+            row["user_modified"] = request.user.username
+
+        if not row.get("created_at"):
+            row["created_at"] = now()
+        row["modified_at"] = None  # Để trống modified_at
+
+        # Lấy dữ liệu cần thiết
+        price = float(row.get("price", 0))
+        qty = int(row.get("qty", 0))
+        # Kiểm tra điều kiện ràng buộc
+        if price < 1000:
+            raise ValidationError(f"Lỗi: Giá price = {price} quá thấp, phải >= 1000")
+        if qty < 100:
+            raise ValidationError(f"Lỗi: Số lượng qty = {qty} bị lẻ, phải >= 100")
+
+        # Tính toán giá trị giao dịch
+        row["total_value"] = price * qty
+        row["transaction_fee"] = row["total_value"] * (account.transaction_fee if account else 0)
+
+        if row.get("position") == "buy":
+            row["tax"] = 0
+            row["net_total_value"] = -row["total_value"] - row["transaction_fee"]
+        else:
+            row["tax"] = row["total_value"] * (account.tax if account else 0)
+            row["net_total_value"] = row["total_value"] - row["transaction_fee"] - row["tax"]
+
+        # Xử lý previous_date & previous_total_value
+        is_new = not row.get("id")  # Nếu không có ID => là bản ghi mới
+        if is_new and account and account.cpd:
+            row["previous_date"] = row["date"]
+            row["previous_total_value"] = row["total_value"]
+        else:
+            row["previous_date"] = None
+            row["previous_total_value"] = None
+        
+        # Kiểm tra số lượng có thể bán nếu là giao dịch bán
+        if row["position"] == "sell":
+            stock = StockListMargin.objects.filter(stock=row["stock"]).first()
+            port = Portfolio.objects.filter(account=account, stock=stock).first()
+            stock_hold = port.on_hold if port else 0
+            sell_pending = Transaction.objects.filter(account=account, stock=stock, position="sell").aggregate(Sum('qty'))['qty__sum'] or 0
+            max_sellable_qty = stock_hold - sell_pending
+
+            if qty > max_sellable_qty:
+                raise ValidationError({'qty': f'Không đủ cổ phiếu bán, tổng cổ phiếu khả dụng là {max_sellable_qty}'})
+        return super().before_import_row(row, **kwargs)
     
-class TransactionAdmin(admin.ModelAdmin):
+
+
+class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
+    resource_class = TransactionResource
+    formats = [XLSX]  # Chỉ cho phép import/export định dạng XLSX
     form = TransactionForm
     list_display_links = ['stock',]
     list_display = ['account','partner','date','stock','position','formatted_price','formatted_qty','formatted_net_total_value','created_at','user_created','formatted_transaction_fee','formatted_tax']
