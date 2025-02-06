@@ -391,7 +391,7 @@ def update_or_created_expense_transaction(instance, description_type):
         description = f"PGD phát sinh với lệnh {instance.position} {instance.stock} số lượng {"{:,.0f}".format(instance.qty)} và giá {"{:,.0f}".format(instance.price) } "
     elif description_type== 'advance_fee':
         number_interest = define_date_receive_cash(instance.date,2)[1]
-        amount = -instance.account.interest_fee *instance.total_value*number_interest /360
+        amount = -instance.account.interest_fee *instance.total_value*number_interest
         description = f"TK {instance.account} tính phí ứng tiền bán cho {number_interest} ngày, số dư tính phí ứng là {"{:,.0f}".format(instance.total_value)}"
     
     ExpenseStatement.objects.update_or_create(
@@ -417,8 +417,8 @@ def process_cash_flow(cash_t0, cash_t1, cash_t2):
 def add_list_when_not_trading(account, list_data, cash_t1,cash_t2,interest_cash_balance, end_date,interest_fee):
     # Kiểm tra xem end_date đã tồn tại trong list_data hay chưa
     advance_cash_balance = -(cash_t1 + cash_t2)
-    interest = round(interest_cash_balance *interest_fee / 360, 0)
-    advance_fee = round(advance_cash_balance * interest_fee / 360, 0)
+    interest = round(interest_cash_balance *interest_fee, 0)
+    advance_fee = round(advance_cash_balance * interest_fee, 0)
     dict_data = {
         'date': end_date,
         'interest_cash_balance': interest_cash_balance,
@@ -435,8 +435,8 @@ def add_list_when_sell(account, list_data, cash_t1,cash_t2,start_date, end_date,
     interest_cash_balance = define_interest_cash_balace(account, start_date, end_date, account_partner)
     interest_cash_balance = interest_cash_balance if interest_cash_balance <= 0 else 0
     advance_cash_balance = -(cash_t1 + cash_t2)
-    interest = round(interest_cash_balance * interest_fee / 360, 0)
-    advance_fee = round(advance_cash_balance * interest_fee / 360, 0)
+    interest = round(interest_cash_balance * interest_fee, 0)
+    advance_fee = round(advance_cash_balance * interest_fee, 0)
     # Nếu end_date đã tồn tại
     if existing_data:
         existing_data['interest_cash_balance'] = interest_cash_balance
@@ -458,8 +458,8 @@ def add_list_when_buy(list_data,value_buy, date_interest,interest_cash_balance,a
     # Kiểm tra xem date_interest đã tồn tại trong list_data hay chưa
     existing_data = next((item for item in list_data if item['date'] == date_interest), None)
     interest_cash_balance += value_buy
-    interest = round(interest_cash_balance * interest_fee / 360, 0)
-    advance_fee = round(advance_cash_balance * interest_fee / 360, 0) if advance_cash_balance !=0 else 0
+    interest = round(interest_cash_balance * interest_fee, 0)
+    advance_fee = round(advance_cash_balance * interest_fee, 0) if advance_cash_balance !=0 else 0
     # Nếu date_interest đã tồn tại
     if existing_data:
         existing_data['interest_cash_balance'] = interest_cash_balance
@@ -842,7 +842,7 @@ def calculate_interest():
     if account_interest:
         for instance in account_interest:
             formatted_interest_cash_balance = "{:,.0f}".format(instance.interest_cash_balance)
-            interest_amount = instance.interest_fee * instance.interest_cash_balance/360
+            interest_amount = instance.interest_fee * instance.interest_cash_balance
             if abs(interest_amount)>10:
                 ExpenseStatement.objects.create(
                     account=instance,

@@ -118,6 +118,9 @@ class PartnerInfo(models.Model):
     ratio_advance_fee= models.FloatField(default = 0.15, verbose_name='Phí ứng tiền')
     total_date_interest = models.IntegerField(default = 360,verbose_name = 'Số ngày tính lãi/năm')
     method_interest =models.CharField(max_length=100,null=True,blank=True, choices=method_interest,verbose_name = 'Phương thức tính lãi')
+    maintenance_margin_ratio= models.FloatField(default = 17, verbose_name='Tỷ lệ duy trì')
+    force_sell_margin_ratio= models.FloatField(default = 13, verbose_name='Tỷ lệ bán khống')
+    
     class Meta:
         verbose_name = 'Đăng kí đối tác'
         verbose_name_plural = 'Đăng kí đối tác'
@@ -135,8 +138,8 @@ class Account (models.Model):
     description = models.TextField(max_length=255, blank=True, verbose_name= 'Mô tả')
     cpd = models.ForeignKey(ClientPartnerInfo,null=True, blank = True,on_delete=models.CASCADE, verbose_name= 'Người giới thiệu' )
     #biểu phí dịch vụ
-    interest_fee = models.FloatField(default=0.1314, verbose_name='Lãi suất')
-    interest_days_in_year = models.PositiveSmallIntegerField(default=365, verbose_name="Số ngày tính lãi trong năm")
+    interest_fee = models.FloatField(default=0.00036, verbose_name='Lãi suất theo ngày')
+    # interest_days_in_year = models.PositiveSmallIntegerField(default=365, verbose_name="Số ngày tính lãi trong năm")
     transaction_fee = models.FloatField(default=0.0015, verbose_name='Phí giao dịch')
     tax = models.FloatField(default=0.001, verbose_name='Thuế')
     maintenance_margin_ratio =models.FloatField(default=0.17, verbose_name='Tỷ lệ gọi kí quỹ')
@@ -270,7 +273,7 @@ class AccountMilestone(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name = 'Ngày tạo' )
     modified_at = models.DateTimeField(auto_now=True, verbose_name = 'Ngày chỉnh sửa' )
     description = models.TextField(max_length=255, blank=True, verbose_name= 'Mô tả')
-    interest_fee = models.FloatField(default=0.16, verbose_name='Lãi suất')
+    interest_fee = models.FloatField(default=0.00036, verbose_name='Lãi suất theo ngày')
     transaction_fee = models.FloatField(default=0.0015, verbose_name='Phí giao dịch')
     tax = models.FloatField(default=0.0001, verbose_name='Thuế')
     # Phục vụ tính tổng cash_balace:

@@ -11,6 +11,12 @@ from django.core.exceptions import PermissionDenied
 from django.urls import reverse
 from django.utils.html import format_html
 from django.http import HttpResponseRedirect
+from import_export.admin import ImportExportModelAdmin
+from import_export.resources import ModelResource
+from import_export.formats.base_formats import XLSX
+from import_export.widgets import ForeignKeyWidget
+from import_export.fields import Field
+from django.utils.timezone import now
 
 
 # Register your models here.
@@ -36,10 +42,10 @@ def real_max_power(date):
 class AccountAdmin(admin.ModelAdmin):
     model= Account
     ordering = ['-nav']
-    list_display = ['name', 'id', 'formatted_cash_balance', 'formatted_interest_cash_balance', 'formatted_market_value', 'formatted_nav', 'margin_ratio','formatted_excess_equity','formatted_total_temporarily_pl', 'custom_status_display','interest_payments']
+    list_display = ['name', 'id', 'formatted_cash_balance', 'formatted_interest_cash_balance', 'formatted_market_value', 'formatted_nav', 'formatted_margin_ratio','formatted_excess_equity','formatted_total_temporarily_pl', 'custom_status_display','interest_payments']
     fieldsets = [
         ('Thông tin cơ bản', {'fields': ['name','cpd','user_created','description']}),
-        ('Biểu phí tài khoản', {'fields': ['interest_fee','interest_days_in_year', 'transaction_fee', 'tax','credit_limit','maintenance_margin_ratio','force_sell_margin_ratio']}),
+        ('Biểu phí tài khoản', {'fields': ['interest_fee', 'transaction_fee', 'tax','credit_limit','maintenance_margin_ratio','force_sell_margin_ratio']}),
         ('Trạng thái tài khoản', {'fields': ['cash_balance', 'interest_cash_balance','advance_cash_balance','net_cash_flow','net_trading_value','market_value','nav','initial_margin_requirement','margin_ratio','excess_equity','custom_status_display','milestone_date_lated']}),
         ('Thông tin lãi và phí ứng', {'fields': ['total_loan_interest','total_interest_paid','total_temporarily_interest','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee']}),
         ('Hiệu quả đầu tư', {'fields': ['total_pl','total_closed_pl','total_temporarily_pl',]}),
@@ -81,7 +87,7 @@ class AccountAdmin(admin.ModelAdmin):
         return self.formatted_number(obj.nav)
 
     def formatted_margin_ratio(self, obj):
-        return self.formatted_number(obj.margin_ratio)
+        return f"{self.formatted_number(obj.margin_ratio*100)}%"
 
 
     def formatted_total_temporarily_pl(self, obj):
@@ -255,12 +261,8 @@ class TransactionForm(forms.ModelForm):
     #             raise ValidationError("Bạn không có quyền sửa đổi các bản ghi được tạo ngày trước đó.")
     #     return cleaned_data
     
-from import_export.admin import ImportExportModelAdmin
-from import_export.resources import ModelResource
-from import_export.formats.base_formats import XLSX
-from import_export.widgets import ForeignKeyWidget
-from import_export.fields import Field
-from django.utils.timezone import now
+
+
 
 class CustomStockWidget(ForeignKeyWidget):
     """Dò tìm StockListMargin bằng tên hoặc mã cổ phiếu"""
@@ -279,7 +281,7 @@ class TransactionResource(ModelResource):
         import_id_fields = []  
         skip_unchanged = True
         report_skipped = False
-        use_bulk = True  # Tăng tốc độ import bằng bulk_create
+        use_bulk = False  # Tăng tốc độ import bằng bulk_create
 
     def before_import_row(self, row, **kwargs):
         
@@ -352,25 +354,25 @@ class TransactionResource(ModelResource):
         if qty < 100:
             raise ValidationError(f"Lỗi: Số lượng qty = {qty} bị lẻ, phải >= 100")
 
-        # Tính toán giá trị giao dịch
-        row["total_value"] = price * qty
-        row["transaction_fee"] = row["total_value"] * (account.transaction_fee if account else 0)
+        # # Tính toán giá trị giao dịch
+        # row["total_value"] = price * qty
+        # row["transaction_fee"] = row["total_value"] * (account.transaction_fee if account else 0)
 
-        if row.get("position") == "buy":
-            row["tax"] = 0
-            row["net_total_value"] = -row["total_value"] - row["transaction_fee"]
-        else:
-            row["tax"] = row["total_value"] * (account.tax if account else 0)
-            row["net_total_value"] = row["total_value"] - row["transaction_fee"] - row["tax"]
+        # if row.get("position") == "buy":
+        #     row["tax"] = 0
+        #     row["net_total_value"] = -row["total_value"] - row["transaction_fee"]
+        # else:
+        #     row["tax"] = row["total_value"] * (account.tax if account else 0)
+        #     row["net_total_value"] = row["total_value"] - row["transaction_fee"] - row["tax"]
 
-        # Xử lý previous_date & previous_total_value
-        is_new = not row.get("id")  # Nếu không có ID => là bản ghi mới
-        if is_new and account and account.cpd:
-            row["previous_date"] = row["date"]
-            row["previous_total_value"] = row["total_value"]
-        else:
-            row["previous_date"] = None
-            row["previous_total_value"] = None
+        # # Xử lý previous_date & previous_total_value
+        # is_new = not row.get("id")  # Nếu không có ID => là bản ghi mới
+        # if is_new and account and account.cpd:
+        #     row["previous_date"] = row["date"]
+        #     row["previous_total_value"] = row["total_value"]
+        # else:
+        #     row["previous_date"] = None
+        #     row["previous_total_value"] = None
         
         # Kiểm tra số lượng có thể bán nếu là giao dịch bán
         if row["position"] == "sell":
@@ -384,7 +386,8 @@ class TransactionResource(ModelResource):
                 raise ValidationError({'qty': f'Không đủ cổ phiếu bán, tổng cổ phiếu khả dụng là {max_sellable_qty}'})
         return super().before_import_row(row, **kwargs)
     
-
+from rangefilter.filters import DateRangeFilter
+from django.contrib.admin import DateFieldListFilter
 
 class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     resource_class = TransactionResource
@@ -400,7 +403,11 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
        
     )
     search_fields = ['account__id','account__name','stock__stock']
-    list_filter = ['account__name','partner__name']
+    list_filter = [
+        'account__name',
+        'partner__name',
+        ('date', DateRangeFilter),  # Bộ lọc ngày từ ngày - đến ngày
+    ]
     
     def get_readonly_fields(self, request, obj=None):
         # Nếu đang chỉnh sửa bản ghi đã tồn tại, trường account sẽ là chỉ đọc

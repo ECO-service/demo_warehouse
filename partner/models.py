@@ -77,6 +77,8 @@ class AccountPartner (models.Model):
     def status(self):
         if self.partner.method_interest == 'total_buy_value':
             check = self.margin_ratio
+            maintenance_margin_ratio = self.partner.maintenance_margin_ratio
+            force_sell_margin_ratio = self.partner.force_sell_margin_ratio
             value_force = round((maintenance_margin_ratio - self.margin_ratio)*self.market_value/100,0)
             value_force_str = '{:,.0f}'.format(value_force)
             status = ""
