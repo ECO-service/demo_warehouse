@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from django.forms import ValidationError
 import requests
 from bs4 import BeautifulSoup
-from infotrading.models import DateNotTrading, StockPriceFilter, DividendManage, get_stock_price_tpbs
+from infotrading.models import *
 from django.db.models import Sum
 from django.utils import timezone
 from telegram import Bot
@@ -71,7 +71,12 @@ def total_value_inventory_stock(account,ratio_trading_fee, stock, start_date, en
     total_value = 0
     for entry in fifo_inventory:
         quantity, price = entry.quantity, entry.price
-        total_value += quantity * price *(1+ratio_trading_fee)
+        #Tìm tỷ lê cho vay để tính giá trị cho vay theo phần 5 của vlc
+        margin_rate = StockListMargin.objects.filter(stock=stock).first().initial_margin_requirement
+        ratio_margin_rate = max(1 - (margin_rate - 20) / 100, 0)
+        #tính tổng số tiền tính lãi vay có bao gồm phí giao dịch => đã bỏ phí giao dịch
+        total_value += quantity * price *ratio_margin_rate #*(1+ratio_trading_fee)
+        
     return total_value
 
 
@@ -313,12 +318,40 @@ class StockListMargin(models.Model):
     user_created = models.ForeignKey(User,on_delete=models.CASCADE,null=True, blank= True,                   verbose_name="Người tạo")
     user_modified = models.CharField(max_length=150, blank=True, null=True,
                              verbose_name="Người chỉnh sửa")
+    # Trường tổng room giá trị cho vay tối đa
+    max_loan_value = models.FloatField(default=0, verbose_name="Tổng room giá trị cho vay tối đa")
+
     class Meta:
          verbose_name = 'Danh mục cho vay'
          verbose_name_plural = 'Danh mục cho vay'
 
     def __str__(self):
         return str(self.stock)
+    
+    @property
+    def available_loan_value(self):
+        # Tính tổng giá trị cổ phiếu đã mua từ Portfolio
+        portfolio = Portfolio.objects.filter(stock=self.stock)  # Lọc theo mã cổ phiếu
+        now = difine_time_craw_stock_price(datetime.now())
+        previous_market_stock_price = StockPriceFilter.objects.filter(ticker=self.stock, date__lte=now).order_by('-date').first()
+        if previous_market_stock_price:
+            previous_market_stock_price = previous_market_stock_price.close*1000
+        else:
+            previous_market_stock_price = 0
+        
+        total_stock_value = sum([p.sum_stock * previous_market_stock_price for p in portfolio])  # Tổng giá trị cổ phiếu đã mua
+        
+        # Tính giá trị cho vay khả dụng
+        available_loan_value = self.max_loan_value - total_stock_value
+        return max(0, available_loan_value)  # Đảm bảo giá trị không âm
+    
+    @property
+    def status(self):
+        if self.available_loan_value/self.max_loan_value -1 >0.8:
+            return "CẢNH BÁO đã mua hơn 80% giá trị hạn mức"
+        else:
+            return "BÌNH THƯỜNG"
+    
 
 class CashTransfer(models.Model):
     account = models.ForeignKey(Account,on_delete=models.CASCADE,verbose_name = 'Tài khoản' )

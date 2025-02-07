@@ -58,7 +58,7 @@ class DividendManage(models.Model):
         return str(self.ticker) +str("_")+ str(self.date_apply)
 
 def difine_time_craw_stock_price(date_time):
-    date_item = DateNotTrading.objects.filter(date__gte=date_time)
+    # date_item = DateNotTrading.objects.filter(date__gte=date_time)
     weekday = date_time.weekday()
     old_time = date_time.time()
     date_time=date_time.date()

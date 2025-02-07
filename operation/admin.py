@@ -230,7 +230,7 @@ admin.site.register(MaxTradingPowerAccount,MaxTradingPowerAccountAdmin)
 
 class StockListMarginAdmin(admin.ModelAdmin):
     model= StockListMargin
-    list_display = ['stock','initial_margin_requirement','ranking','exchanges','created_at','modified_at','user_created']
+    list_display = ['stock','initial_margin_requirement','formatted_max_loan_value','formatted_available_loan_value','ranking','exchanges','modified_at','user_created','custom_status_display']
     search_fields = ['stock',]
     readonly_fields = ['modified_at','user_created']
     def save_model(self, request, obj, form, change):
@@ -240,6 +240,28 @@ class StockListMarginAdmin(admin.ModelAdmin):
         else:
             obj.user_modified = request.user.username
         super().save_model(request, obj, form, change)
+    
+    def formatted_number(self, value):
+        # Format number with commas as thousand separators and no decimal places
+        return '{:,.0f}'.format(value)
+    
+    def formatted_max_loan_value(self, obj):
+        return self.formatted_number(obj.max_loan_value)
+    formatted_max_loan_value.short_description = 'Tổng giá trị cho vay'
+
+    def formatted_available_loan_value(self, obj):
+        return self.formatted_number(obj.available_loan_value)
+    formatted_available_loan_value.short_description = 'Giá trị cho vay khả dụng'
+    
+    def custom_status_display(self, obj):
+        if obj.status:
+            # Thêm HTML cho màu sắc dựa trên điều kiện
+            color = 'red' if 'cảnh báo' in obj.status.lower() else 'green'
+            # Thêm <br> để xuống dòng
+            return format_html('<span style="color: {};">{}</span><br>', color, obj.status)
+        return format_html('<span></span>')  # Trả về một span trống nếu status không tồn tại
+
+    custom_status_display.short_description = 'Trạng thái'
 
 
 
