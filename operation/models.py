@@ -319,7 +319,7 @@ class StockListMargin(models.Model):
     user_modified = models.CharField(max_length=150, blank=True, null=True,
                              verbose_name="Người chỉnh sửa")
     # Trường tổng room giá trị cho vay tối đa
-    max_loan_value = models.FloatField(default=0, verbose_name="Tổng room giá trị cho vay tối đa")
+    max_loan_value = models.FloatField(default=1000000000, verbose_name="Tổng room giá trị cho vay tối đa")
 
     class Meta:
          verbose_name = 'Danh mục cho vay'
@@ -347,7 +347,9 @@ class StockListMargin(models.Model):
     
     @property
     def status(self):
-        if self.available_loan_value/self.max_loan_value -1 >0.8:
+        if self.max_loan_value ==0:
+            return "KHÔNG CHO VAY"
+        elif self.available_loan_value/self.max_loan_value -1 >0.8:
             return "CẢNH BÁO đã mua hơn 80% giá trị hạn mức"
         else:
             return "BÌNH THƯỜNG"
