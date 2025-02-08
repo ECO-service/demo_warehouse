@@ -250,7 +250,10 @@ class StockListMarginAdmin(admin.ModelAdmin):
     formatted_max_loan_value.short_description = 'Tổng giá trị cho vay'
 
     def formatted_available_loan_value(self, obj):
-        return self.formatted_number(obj.available_loan_value)
+        if obj.available_loan_value is None:
+            return None
+        else:
+            return self.formatted_number(obj.available_loan_value)
     formatted_available_loan_value.short_description = 'Giá trị cho vay khả dụng'
     
     def custom_status_display(self, obj):
@@ -451,7 +454,7 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
             else:
                 if obj.created_at.date() != today:
                     if not request.user.is_superuser:
-                        raise PermissionDenied("Bạn không có quyền sửa đổi bản ghi.")
+                        raise PermissionDenied("Bạn không có quyền sửa đổi bản ghi lịch sử.")
                     else:
                         super().save_model(request, obj, form, change)
                         if obj.total_value != obj.previous_total_value or obj.previous_date != obj.date:
@@ -459,7 +462,9 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
                             delete_and_recreate_account_expense(obj.account)
                             # Chạy lại phí tk con
                             if obj.partner.method_interest =='total_buy_value':
-                                delete_and_recreate_account_partner_expense(obj.account, obj.partner)
+                                account_partner = AccountPartner.objects.filter(account = obj.account, partner = obj.partner).first()
+                                if account_partner:
+                                    delete_and_recreate_account_partner_expense(obj.account, account_partner)
                             # Thêm dòng cảnh báo cho siêu người dùng
                             messages.warning(request, "Sao kê phí lãi vay đã được cập nhật.")
                 else:

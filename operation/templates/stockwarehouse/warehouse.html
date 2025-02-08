@@ -1,14 +1,68 @@
-{% extends 'admin/base_site.html' %}
-{% block content %}
-
+<!DOCTYPE html>
+<html lang="vi">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Khối lượng mua và Cập nhật giá</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.1.5/dist/sweetalert2.min.css">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.1.5/dist/sweetalert2.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            color: #333;
+        }
+        form {
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        input[type="number"], input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .section {
+            margin-top: 40px;
+        }
+        .btn-update {
+            background-color: #28a745;
+        }
+        .btn-update:hover {
+            background-color: #218838;
+        }
+    </style>
 </head>
-
 <body>
-    <h1>Khối lượng mua tối đa theo kho</h1> <br>
+
+    <h1>Khối lượng mua tối đa theo kho</h1><br>
+    
+    <!-- Form tính toán khối lượng mua -->
     <form id="calculate-form" method="POST">
         {% csrf_token %}
         <label for="account">Tài khoản:</label>
@@ -20,75 +74,117 @@
         <button type="submit">Tính toán</button>
     </form>
 
-    <br> <!-- Thêm dòng mới tại đây -->
-
-    <h1>Cập nhật giá</h1>
-    <button id="execute-btn">Cập nhật</button>
-    <ul id="stock-list"></ul>
+    <div class="section">
+        <h2>Cập nhật giá</h2>
+        <button class="btn-update" id="execute-btn">Cập nhật</button>
+        <ul id="stock-list"></ul>
+    </div>
 
     <script>
         $(document).ready(function() {
-            // Xử lý form tính toán khối lượng mua
             $('#calculate-form').submit(function(event) {
                 event.preventDefault();
-                var account = parseFloat($('#account').val());
-                var ticker = $('#ticker').val();
-                var price = parseFloat($('#price').val());
-
+    
+                var account = $('#account').val();
+                var ticker = $('#ticker').val().toUpperCase();
+                var price = $('#price').val();
+    
+                // Kiểm tra xem các trường có hợp lệ không
                 if (!account || !ticker || !price) {
-                    alert('Vui lòng nhập đủ thông số đầu vào');
+                    alert('Vui lòng nhập đầy đủ thông tin.');
                     return;
                 }
-
-                var R = 0.03 * account;
+    
+                // Gửi yêu cầu AJAX để tính toán khối lượng mua tối đa
                 $.ajax({
                     type: 'POST',
-                    url: '',
+                    url: '',  // URL hiện tại
                     data: {
                         'account': account,
                         'ticker': ticker,
                         'price': price,
-                        'action': 'calculate_max_qty_buy',  // Đặt action để xác định loại yêu cầu
+                        'action': 'calculate_max_qty_buy',
                         'csrfmiddlewaretoken': $('input[name=csrfmiddlewaretoken]').val()
                     },
                     success: function(data) {
-                        alert('Khối lượng là: ' + data.qty);
+                        if (data.qty) {
+                            // Hiển thị thông báo thành công với SweetAlert2
+                            Swal.fire({
+                                title: 'Khối lượng tối đa có thể mua',
+                                text: data.qty,
+                                icon: 'success',
+                                confirmButtonText: 'OK'
+                            });
+                        } else if (data.error) {
+                            // Hiển thị thông báo lỗi từ server
+                            Swal.fire({
+                                title: 'Lỗi',
+                                text: data.error,
+                                icon: 'error',
+                                confirmButtonText: 'OK'
+                            });
+                        }
                     },
-                    error: function() {
-                        alert('Đã có lỗi xảy ra.');
+                    error: function(xhr, status, error) {
+                        // Xử lý lỗi từ server (bao gồm cả mã lỗi 400, 500, v.v.)
+                        let errorMessage = 'Có lỗi xảy ra';
+                        if (xhr.responseJSON && xhr.responseJSON.error) {
+                            errorMessage = xhr.responseJSON.error; // Lấy thông báo lỗi từ server
+                        }
+                        Swal.fire({
+                            title: 'Lỗi',
+                            text: errorMessage,
+                            icon: 'error',
+                            confirmButtonText: 'OK'
+                        });
                     }
                 });
             });
-
-            // Xử lý nút cập nhật giá
+    
+            // Cập nhật giá cổ phiếu
             $('#execute-btn').click(function() {
-                // Hiển thị popup "Đang lấy dữ liệu"
+                // Hiển thị popup loading trước khi gửi yêu cầu
                 Swal.fire({
-                    title: 'Đang lấy dữ liệu',
+                    title: 'Đang cập nhật...',
+                    text: 'Vui lòng đợi trong giây lát.',
                     allowOutsideClick: false,
-                    onBeforeOpen: () => {
+                    didOpen: () => {
                         Swal.showLoading();
                     }
                 });
-
+    
                 // Gửi yêu cầu POST đến view 'get-price'
-                $.post('', {'action': 'update_market_price', 'csrfmiddlewaretoken': '{{ csrf_token }}'}, function(data) {
-                    // Ẩn popup khi yêu cầu thành công
+                $.post('', {
+                    'action': 'update_market_price',
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                }, function(data) {
+                    // Đóng popup loading khi yêu cầu thành công
                     Swal.close();
-
-                    // Hiển thị thông báo cập nhật giá thành công
-                    showSuccessPopup();
+    
+                    // Kiểm tra dữ liệu trả về từ server
+                    if (data.message) {
+                        // Hiển thị thông báo cập nhật giá thành công
+                        Swal.fire({
+                            title: 'Cập nhật thành công!',
+                            text: data.message,
+                            icon: 'success',
+                            confirmButtonText: 'OK'
+                        });
+                    }
                 }).fail(function(xhr, status, error) {
-                    // Ẩn popup khi yêu cầu thất bại và hiển thị popup lỗi
+                    // Đóng popup loading khi yêu cầu thất bại và hiển thị popup lỗi
                     Swal.close();
                     Swal.fire({
                         title: 'Có lỗi xảy ra',
                         text: 'Lỗi: ' + error,
-                        icon: 'error'
+                        icon: 'error',
+                        confirmButtonText: 'OK'
                     });
                 });
             });
         });
     </script>
+    
 
-{% endblock %}
+</body>
+</html>

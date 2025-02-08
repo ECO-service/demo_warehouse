@@ -122,7 +122,7 @@ class PartnerInfo(models.Model):
     ratio_interest_fee= models.FloatField(default = 0.15, verbose_name='Lãi vay')
     ratio_advance_fee= models.FloatField(default = 0.15, verbose_name='Phí ứng tiền')
     total_date_interest = models.IntegerField(default = 360,verbose_name = 'Số ngày tính lãi/năm')
-    method_interest =models.CharField(max_length=100,null=True,blank=True, choices=method_interest,verbose_name = 'Phương thức tính lãi')
+    method_interest =models.CharField(max_length=100,default ='dept',null=True,blank=True, choices=method_interest,verbose_name = 'Phương thức tính lãi')
     maintenance_margin_ratio= models.FloatField(default = 17, verbose_name='Tỷ lệ duy trì')
     force_sell_margin_ratio= models.FloatField(default = 13, verbose_name='Tỷ lệ bán khống')
     
@@ -333,27 +333,38 @@ class StockListMargin(models.Model):
         # Tính tổng giá trị cổ phiếu đã mua từ Portfolio
         portfolio = Portfolio.objects.filter(stock=self.stock)  # Lọc theo mã cổ phiếu
         now = difine_time_craw_stock_price(datetime.now())
-        previous_market_stock_price = StockPriceFilter.objects.filter(ticker=self.stock, date__lte=now).order_by('-date').first()
+        previous_market_stock_price = (
+            StockPriceFilter.objects
+            .filter(ticker=self.stock, date__lte=now)
+            .filter(Q(close__isnull=False) & Q(close__gt=0))  # Loại bỏ close=None hoặc close=0
+            .order_by('-date')
+            .first()
+            )
         if previous_market_stock_price:
             previous_market_stock_price = previous_market_stock_price.close*1000
+            total_stock_value = sum([p.sum_stock * previous_market_stock_price for p in portfolio])  # Tổng giá trị cổ phiếu đã mua
+            # Tính giá trị cho vay khả dụng
+            available_loan_value = self.max_loan_value - total_stock_value
+            return available_loan_value
         else:
-            previous_market_stock_price = 0
+            return None
         
-        total_stock_value = sum([p.sum_stock * previous_market_stock_price for p in portfolio])  # Tổng giá trị cổ phiếu đã mua
         
-        # Tính giá trị cho vay khả dụng
-        available_loan_value = self.max_loan_value - total_stock_value
-        return max(0, available_loan_value)  # Đảm bảo giá trị không âm
     
     @property
     def status(self):
         if self.max_loan_value ==0:
-            return "KHÔNG CHO VAY"
-        elif self.available_loan_value/self.max_loan_value -1 >0.8:
-            return "CẢNH BÁO đã mua hơn 80% giá trị hạn mức"
+                return "KHÔNG CHO VAY"
+        if self.available_loan_value:
+            if self.available_loan_value/self.max_loan_value -1 >0.8:
+                return "CẢNH BÁO đã mua hơn 80% giá trị hạn mức"
+            elif self.available_loan_value > self.max_loan_value:
+                return "CẢNH BÁO mua vượt hạn mức"
+            else:
+                return "BÌNH THƯỜNG"
         else:
-            return "BÌNH THƯỜNG"
-    
+            return "Không tính được số dư hiện tại"
+        
 
 class CashTransfer(models.Model):
     account = models.ForeignKey(Account,on_delete=models.CASCADE,verbose_name = 'Tài khoản' )

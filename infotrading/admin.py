@@ -8,7 +8,7 @@ from .models import *
 admin.site.register(DateNotTrading)
 
 class StockPriceFilterAdmin(admin.ModelAdmin):
-    list_display = ('ticker', 'date', 'open', 'high', 'low', 'close', 'volume', 'date_time')  # Các trường hiển thị trong danh sách
+    list_display = ('ticker', 'date', 'close', 'date_time')  # Các trường hiển thị trong danh sách
     search_fields = ('ticker',)  # Cho phép tìm kiếm theo ticker
     list_filter = ('date',)  # Thêm bộ lọc theo ngày
     ordering = ('-date',)  # Sắp xếp theo ngày giảm dần
@@ -17,7 +17,7 @@ class StockPriceFilterAdmin(admin.ModelAdmin):
     # Tùy chỉnh các trường hiển thị khi xem chi tiết đối tượng
     fieldsets = (
         (None, {
-            'fields': ('ticker', 'date', 'open', 'high', 'low', 'close', 'volume', 'date_time')
+            'fields': ('ticker', 'date',  'close',  'date_time')
         }),
     )
 
