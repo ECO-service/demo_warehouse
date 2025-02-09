@@ -5,21 +5,24 @@ from operation.models import *
 # Create your models here.
 def partner_cal_avg_price(account,partner,stock, date_time): 
     item_transactions = Transaction.objects.filter(account=account,partner =partner, stock__stock = stock, created_at__gt =date_time).order_by('date','created_at')
-    fifo = FIFO([])
-    for item in item_transactions:
-    # Kiểm tra xem giao dịch có phải là mua hay bán
-        if item.position == 'buy':
-            # Nếu là giao dịch mua, thêm một Entry mới với quantity dương vào FIFO
-            entry = Entry(item.qty, item.price)
-        else:
-            # Nếu là giao dịch bán, thêm một Entry mới với quantity âm vào FIFO
-            entry = Entry(-item.qty, item.price)
-        # Thêm entry vào FIFO
-        fifo._push(entry) if entry.buy else fifo._fill(entry)
-        
-        # fifo.trace in ra từng giao dịch bán
-        # fifo.profit_and_loss tính lời lỗ
-    return fifo.avgcost
+    if item_transactions:
+        fifo = FIFO([])
+        for item in item_transactions:
+        # Kiểm tra xem giao dịch có phải là mua hay bán
+            if item.position == 'buy':
+                # Nếu là giao dịch mua, thêm một Entry mới với quantity dương vào FIFO
+                entry = Entry(item.qty, item.price)
+            else:
+                # Nếu là giao dịch bán, thêm một Entry mới với quantity âm vào FIFO
+                entry = Entry(-item.qty, item.price)
+            # Thêm entry vào FIFO
+            fifo._push(entry) if entry.buy else fifo._fill(entry)
+            
+            # fifo.trace in ra từng giao dịch bán
+            # fifo.profit_and_loss tính lời lỗ
+        return fifo.avgcost
+    else:
+        return 0
 
 
 
@@ -198,17 +201,21 @@ class PortfolioPartner (models.Model):
     def __str__(self):
         return self.stock
     
-    def save(self, *args, **kwargs):
+    def save(self, *args, update_avg_price=True, **kwargs):
         self.sum_stock = self.receiving_t2+ self.receiving_t1+self.on_hold 
         self.profit =0
         self.percent_profit = 0
         if self.sum_stock >0:
-            self.market_price = round(get_stock_market_price(str(self.stock)),0)
+            if update_avg_price:
+                self.market_price = get_stock_market_price(str(self.stock))
+            else:
+                self.market_price = StockPriceFilter.objects.filter(ticker=self.stock).order_by('-date').first().close
             if self.account.account.milestone_date_lated:
                 date_cal = self.account.account.milestone_date_lated
             else:
                 date_cal = self.account.account.created_at
-            self.avg_price = round(partner_cal_avg_price(self.account.account.pk,self.account.partner,self.stock,date_cal ),0)
+            if update_avg_price:  # Chỉ tính avg_price khi được phép
+                self.avg_price = round(partner_cal_avg_price(self.account.account.pk,self.account.partner,self.stock,date_cal ),0)
             self.profit = round((self.market_price - self.avg_price)*self.sum_stock,0)
             self.percent_profit = round((self.market_price/self.avg_price-1)*100,2)
             self.market_value = self.market_price*self.sum_stock

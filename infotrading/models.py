@@ -4,6 +4,8 @@ from django.db import models
 from datetime import datetime, timedelta, time
 import yfinance as yf
 import requests
+import concurrent.futures
+import random
 
 # Create your models here.
 
@@ -76,49 +78,6 @@ def difine_time_craw_stock_price(date_time):
     else:
         new_time = time(14, 45, 0)
     return datetime.combine(date_time, new_time)
-
-
-def get_list_and_save_stock_price(list_stock):
-    date_time = difine_time_craw_stock_price(datetime.now())  # Hàm này vẫn được gọi như cũ
-
-    # Lấy danh sách giá cổ phiếu từ pine_tree hoặc bvsc
-    pine_tree = pinetree_get_stock_prices()
-    if pine_tree:
-        filtered_stocks = [
-            {'stock': item['stock'], 'price': item['price']}
-            for item in pine_tree if item['stock'] in list_stock
-        ]
-    else:
-        bvsc = bvsc_get_stock_prices()
-        if bvsc:
-            filtered_stocks = [
-                {'stock': item['stock'], 'price': item['price']}
-                for item in bvsc if item['stock'] in list_stock
-            ]
-        else:
-            # Lấy giá cổ phiếu từ các nguồn khác nếu không có pine_tree hoặc bvsc
-            filtered_stocks = []
-            for stock in list_stock:
-                price = cophieu68_get_market_price(stock) or yahoo_get_market_price(stock)
-                if price:  
-                    filtered_stocks.append({'stock': stock, 'price': price})
-    
-    # Cập nhật hoặc tạo mới bản ghi trong cơ sở dữ liệu
-    if filtered_stocks:
-        for stock in filtered_stocks:
-            ticker = stock.get('stock')
-            date = date_time.date()
-            price = stock.get('price')
-            
-            # Cập nhật hoặc tạo mới bản ghi
-            StockPriceFilter.objects.update_or_create(
-                ticker=ticker,
-                date=date,
-                defaults={'close': price, 'date_time': date_time},
-            )
-    
-    return filtered_stocks
-
 
 
 
@@ -218,9 +177,9 @@ def vps_get_stock_price(stock):
             data = response.json()  # Parse JSON response
             if data:
                 stock_info = data[0]  # Assuming the response is a list with one dictionary
-                sym = stock_info.get("sym")
+                # sym = stock_info.get("sym")
                 last_price = stock_info.get("lastPrice")*1000
-                return {"stock": sym, "price": last_price}
+                return last_price
             else:
                 return {"error": "No data found"}
         except ValueError:
@@ -289,3 +248,107 @@ def get_dividend_data():
                 return {"error": "Lỗi khi phân tích dữ liệu JSON"}
         else:
             return {"error": f"Yêu cầu thất bại với mã lỗi {response.status_code}"}
+        
+
+def get_stock_market_price(stock):
+    """Lấy giá cổ phiếu từ các API với thứ tự ngẫu nhiên và timeout 5s mỗi API."""
+
+    def fetch_with_timeout(func, stock, timeout=5):
+        """Gọi API với timeout, trả về None nếu hết thời gian."""
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(func, stock)
+            try:
+                return future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                return None
+
+    # Danh sách API lấy giá cổ phiếu, xáo trộn thứ tự mỗi lần chạy
+    sources = [
+        ("Cophieu68", cophieu68_get_market_price),
+        ("Yahoo Finance", yahoo_get_market_price),
+        ("VPS", vps_get_stock_price)
+    ]
+    random.shuffle(sources)  # Xáo trộn thứ tự mỗi lần chạy
+
+    # Thử từng API với timeout 5s
+    for source_name, func in sources:
+        print(f"🟡 Đang lấy giá từ: {source_name}...")
+        price = fetch_with_timeout(func, stock, timeout=5)
+        if price is not None:
+            print(f"✅ Giá lấy từ {source_name}: {price}")
+            return price  # Trả về ngay khi có giá hợp lệ
+        else:
+            print(f"❌ {source_name} không trả về giá hoặc bị timeout.")
+
+    print("⚠️ Không thể lấy giá từ bất kỳ nguồn nào.")
+    return None  # Trả về None nếu tất cả API đều thất bại 
+
+
+def get_list_and_save_stock_price(list_stock):
+    
+    """Lấy danh sách giá cổ phiếu và lưu vào cơ sở dữ liệu."""
+    date_time = difine_time_craw_stock_price(datetime.now())  # Xác định thời gian crawl
+
+    def fetch_with_timeout(func, *args, timeout=5):
+        """Chạy hàm với timeout, trả về None nếu quá thời gian."""
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = executor.submit(func, *args)
+            try:
+                return future.result(timeout=timeout)
+            except concurrent.futures.TimeoutError:
+                return None
+
+    # 1️⃣ Thử lấy dữ liệu từ danh sách nguồn trước (pinetree, bvsc)
+    stock_price_sources = [
+        ("Pinetree", pinetree_get_stock_prices),
+        ("BVSC", bvsc_get_stock_prices)
+    ]
+    random.shuffle(stock_price_sources)  # Ngẫu nhiên hóa thứ tự gọi API
+
+    filtered_stocks = []
+    for source_name, func in stock_price_sources:
+        print(f"🟡 Đang lấy danh sách giá cổ phiếu từ: {source_name}...")
+        data = fetch_with_timeout(func, timeout=5)
+        if data:
+            filtered_stocks = [
+                {'stock': item['stock'], 'price': item['price']}
+                for item in data if item['stock'] in list_stock
+            ]
+            if filtered_stocks:
+                print(f"✅ Lấy thành công từ {source_name}.")
+                break  # Nếu có dữ liệu, dừng thử nguồn tiếp theo
+        print(f"❌ Không thể lấy dữ liệu từ {source_name}.")
+
+    # 2️⃣ Nếu chưa có dữ liệu, thử lấy từng cổ phiếu từ các API riêng lẻ
+    if not filtered_stocks:
+        stock_price_sources = [
+            ("Cophieu68", cophieu68_get_market_price),
+            ("Yahoo Finance", yahoo_get_market_price),
+            ("VPS", vps_get_stock_price)
+        ]
+        random.shuffle(stock_price_sources)  # Ngẫu nhiên hóa thứ tự ưu tiên
+
+        for stock in list_stock:
+            for source_name, func in stock_price_sources:
+                print(f"🟡 Đang lấy giá {stock} từ: {source_name}...")
+                price = fetch_with_timeout(func, stock, timeout=5)
+                if price:
+                    filtered_stocks.append({'stock': stock, 'price': price})
+                    print(f"✅ Giá {stock} từ {source_name}: {price}")
+                    break  # Nếu lấy được giá, dừng thử tiếp
+                print(f"❌ {source_name} không có giá cho {stock} hoặc bị timeout.")
+
+    # 3️⃣ Cập nhật hoặc tạo mới bản ghi trong cơ sở dữ liệu
+    if filtered_stocks:
+        for stock in filtered_stocks:
+            ticker = stock.get('stock')
+            date = date_time.date()
+            price = stock.get('price')
+
+            StockPriceFilter.objects.update_or_create(
+                ticker=ticker,
+                date=date,
+                defaults={'close': price, 'date_time': date_time},
+            )
+
+    return filtered_stocks

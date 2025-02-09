@@ -237,15 +237,7 @@ logging.basicConfig(
 
 
 
-CRONJOBS = [
-    ('0 1 * * *', 'stockwarehouse.schedule.schedule_morning'),# chạy lúc 7 giờ sáng
-    ('15 1 * * *', 'operation.processing.calculate_interest'),# chạy lúc 7 giờ 15 sáng
-    ('0 */2 2-8 * 1-5', 'stockwarehouse.schedule.get_info_stock_price_filter'),# chạy từ 9 đến 15h, cách 2 giờ chạy 1 lần
-    ('30 4 * * 1-5', 'stockwarehouse.schedule.schedule_mid_trading_date'),# chạy lúc 11h30 sáng
-    # ('15 8 * * 1-5', 'stockwarehouse.schedule.schedule_after_trading_date'),# chạy lúc 14h45 trưa
-    ('10-25/15 2-7 * * 1-5', 'stockwarehouse.schedule.get_info_stock_price_stock_68'),# từ 2:10 đến 7:25 mỗi ngày cách nhau 15p
-    ('0 2 * * *', 'python manage.py dbbackup'),  # Thực hiện backup cơ sở dữ liệu mỗi ngày lúc 2 giờ sáng
-]
+
 
 CRONJOBS = [
 # Chạy lúc 7 giờ sáng
@@ -253,11 +245,10 @@ CRONJOBS = [
 # Chạy lúc 7 giờ 15 phút sáng
 ('15 7 * * *', 'operation.processing.calculate_interest'),
 # Chạy từ 9 đến 15 giờ, cách 2 giờ chạy 1 lần (trong ngày từ thứ Hai đến thứ Sáu)
-('0 */2 9-15 * 1-5', 'stockwarehouse.schedule.get_info_stock_price_filter'),
+('0 */1 9-15 * 1-5', 'stockwarehouse.schedule.get_info_stock_price_filter'),
 # Chạy lúc 11 giờ 30 phút sáng (trong ngày từ thứ Hai đến thứ Sáu)
 ('30 11 * * 1-5', 'stockwarehouse.schedule.schedule_mid_trading_date'),
-# Từ 9 giờ 10 phút đến 14 giờ 25 phút mỗi ngày cách nhau 15 phút (trong ngày từ thứ Hai đến thứ Sáu)
-('10-25/15 9-14 * * 1-5', 'stockwarehouse.schedule.get_info_stock_price_stock_68'),
+
 ]
 
 DJANGO_CRONTAB_LOCK_JOBS = True

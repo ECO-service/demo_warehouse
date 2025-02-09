@@ -253,16 +253,16 @@ def update_market_price_port(sender, instance, created, **kwargs):
     port_partner = PortfolioPartner.objects.filter(sum_stock__gt=0, stock =instance.ticker)
     if port:
         for item in port:
-            new_price = instance.close*1000
+            new_price = instance.close
             item.market_price = new_price*item.sum_stock
-            item.save()
+            item.save(update_avg_price=False)  # Không cập nhật avg_price
             account = item.account
             account.save()
     if port_partner:
         for item in port_partner:
-            new_price = instance.close*1000
+            new_price = instance.close
             item.market_price = new_price*item.sum_stock
-            item.save()
+            item.save(update_avg_price=False)  # Không cập nhật avg_price
             account_partner = item.account
             account_partner.save()
 

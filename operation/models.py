@@ -80,33 +80,6 @@ def total_value_inventory_stock(account,ratio_trading_fee, stock, start_date, en
     return total_value
 
 
-def get_stock_market_price(stock):
-    linkbase = 'https://www.cophieu68.vn/quote/summary.php?id=' + stock
-    try:
-        # Attempt to get stock price from the primary source
-        r = requests.get(linkbase)
-        r.raise_for_status()  # Check for HTTP errors
-        soup = BeautifulSoup(r.text, 'html.parser')
-        div_tag = soup.find('div', id='stockname_close')
-        if div_tag is not None:
-            return float(div_tag.text) * 1000
-        else:
-            print(f"Cổ phiếu 68 không có cổ phiếu")
-            list_stock = []
-            list_stock.append(stock)
-            price = get_stock_price_tpbs(list_stock)[1]
-            return price   
-    except requests.exceptions.RequestException as primary_exception:
-        try:
-            print(f"lỗi truy cập cổ phiếu 68")
-            list_stock = []
-            list_stock.append(stock)
-            price = get_stock_price_tpbs(list_stock)[1]
-            return price
-        except Exception as alternative_exception:
-            print(f"Lỗi truy cập TPBS: {alternative_exception}")
-            return 0
-    
 class PartnerInfo(models.Model):
 
     method_interest= [
@@ -341,7 +314,7 @@ class StockListMargin(models.Model):
             .first()
             )
         if previous_market_stock_price:
-            previous_market_stock_price = previous_market_stock_price.close*1000
+            previous_market_stock_price = previous_market_stock_price.close
             total_stock_value = sum([p.sum_stock * previous_market_stock_price for p in portfolio])  # Tổng giá trị cổ phiếu đã mua
             # Tính giá trị cho vay khả dụng
             available_loan_value = self.max_loan_value - total_stock_value
@@ -546,17 +519,21 @@ class Portfolio (models.Model):
     def __str__(self):
         return self.stock
     
-    def save(self, *args, **kwargs):
+    def save(self, *args, update_avg_price=True, **kwargs):
         self.sum_stock = self.receiving_t2+ self.receiving_t1+self.on_hold 
         self.profit =0
         self.percent_profit = 0
         if self.sum_stock >0:
-            self.market_price = round(get_stock_market_price(str(self.stock)),0)
+            if update_avg_price:
+                self.market_price = get_stock_market_price(str(self.stock))
+            else:
+                self.market_price = StockPriceFilter.objects.filter(ticker=self.stock).order_by('-date').first().close
             if self.account.milestone_date_lated:
                 date_cal = self.account.milestone_date_lated
             else:
                 date_cal = self.account.created_at
-            self.avg_price = round(cal_avg_price(self.account.pk,self.stock,date_cal ),0)
+            if update_avg_price:  # Chỉ tính avg_price khi được phép
+                self.avg_price = round(cal_avg_price(self.account.pk, self.stock, date_cal), 0)
             self.profit = round((self.market_price - self.avg_price)*self.sum_stock,0)
             self.percent_profit = round((self.market_price/self.avg_price-1)*100,2)
             self.market_value = self.market_price*self.sum_stock

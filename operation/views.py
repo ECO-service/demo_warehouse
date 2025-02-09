@@ -11,7 +11,10 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib import messages
 from django.contrib.auth import authenticate, login
 
-
+def run_get_list_and_save_stock_price():
+    stock_list = Portfolio.objects.values_list('stock', flat=True).distinct()
+    stock_list_python = list(stock_list)
+    get_list_and_save_stock_price(stock_list_python)
 
 
 
@@ -23,9 +26,7 @@ def warehouse(request):
         # Xử lý cập nhật giá thị trường cho các cổ phiếu trong danh sách
         if action == 'update_market_price':
             try:
-                stock_list = Portfolio.objects.values_list('stock', flat=True).distinct()
-                stock_list_python = list(stock_list)
-                get_list_and_save_stock_price(stock_list_python)
+                run_get_list_and_save_stock_price()
                 return JsonResponse({'message': 'Cập nhật giá thành công!'})
             except Exception as e:
                 return JsonResponse({'error': f'Đã có lỗi xảy ra khi cập nhật giá: {str(e)}'}, status=500)
