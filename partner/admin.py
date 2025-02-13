@@ -237,7 +237,7 @@ class CashTransferPartnerForm(forms.ModelForm):
 
 class CashTransferPartnerAdmin(admin.ModelAdmin):
     form  = CashTransferPartnerForm
-    list_display = ['source','partner','account', 'date', 'formatted_amount', 'user_created', 'user_modified', 'created_at']
+    list_display = ['partner','account', 'date', 'formatted_amount', 'user_created', 'user_modified', 'created_at']
     readonly_fields = ['user_created', 'user_modified']
     search_fields = ['account__id','account__name']
     list_filter = ['partner__name',]

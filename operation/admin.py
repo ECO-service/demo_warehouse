@@ -23,26 +23,12 @@ from django.utils.timezone import now
 
 
 
-def real_min_power(date): 
-    value = RealTradingPower.objects.filter(date = date).first()
-    if value:
-        value_trading  =value.min_amount
-    else:
-        value_trading = 0
-    return value_trading
-    
-def real_max_power(date):   
-    value = RealTradingPower.objects.filter(date = date).first()
-    if value:
-        value_trading  =value.max_amount
-    else:
-        value_trading = 0
-    return value_trading
+
 
 class AccountAdmin(admin.ModelAdmin):
     model= Account
     ordering = ['-nav']
-    list_display = ['name', 'id', 'formatted_cash_balance', 'formatted_interest_cash_balance', 'formatted_market_value', 'formatted_nav', 'formatted_margin_ratio','formatted_excess_equity','formatted_total_temporarily_pl', 'custom_status_display','interest_payments']
+    list_display = ['name','partner', 'id', 'formatted_cash_balance', 'formatted_interest_cash_balance', 'formatted_market_value', 'formatted_nav', 'formatted_margin_ratio','formatted_excess_equity','formatted_total_temporarily_pl', 'custom_status_display','interest_payments']
     fieldsets = [
         ('Thông tin cơ bản', {'fields': ['name','cpd','user_created','description']}),
         ('Biểu phí tài khoản', {'fields': ['interest_fee', 'transaction_fee', 'tax','credit_limit','maintenance_margin_ratio','force_sell_margin_ratio']}),
@@ -182,50 +168,7 @@ class AccountMilestoneAdmin(admin.ModelAdmin):
     
 admin.site.register(AccountMilestone,AccountMilestoneAdmin)
 
-class MaxTradingPowerAccountAdmin(admin.ModelAdmin):
-    model = MaxTradingPowerAccount
-    list_display = ['name', 'id','list_stock_2_8','list_stock_3_7']#,'real_min_power','real_max_power']
-    search_fields = ['name','id']
-    readonly_fields = ['name', 'id','cpd','user_created','description','total_pl','total_closed_pl','total_temporarily_pl']
-    fieldsets = [
-        ('Thông tin cơ bản', {'fields': ['name','cpd','user_created','description']}),
-        ('Hiệu quả đầu tư', {'fields': ['total_pl','total_closed_pl','total_temporarily_pl']}),]
 
-    def get_queryset(self, request):
-        queryset = super().get_queryset(request)
-        return queryset.filter(nav__gt=0)
-    
-
-    
-    def list_stock_2_8(self, obj):
-        max_value = 0
-        if obj.excess_equity >0:
-            pre_max_value = obj.excess_equity / (20/100) 
-            credit_limit = obj.credit_limit - obj.market_value
-            max_value =min(pre_max_value,credit_limit,real_max_power(datetime.now().date()))     
-        return '{:,.0f}'.format(max_value)
-    list_stock_2_8.short_description = 'Nhóm mã 2:8'
-
-    def list_stock_3_7(self, obj):
-        max_value = 0
-        if obj.excess_equity >0:
-            pre_max_value = obj.excess_equity / (30/100) 
-            credit_limit = obj.credit_limit - obj.market_value
-            max_value =min(pre_max_value,credit_limit,real_min_power(datetime.now().date()))     
-        return '{:,.0f}'.format(max_value)
-    list_stock_3_7.short_description = 'Nhóm mã 3:7'
-
-    
-
-    def has_add_permission(self, request):
-        # Return False to disable the "Add" button
-        return False
-    
-    
-
-
-
-admin.site.register(MaxTradingPowerAccount,MaxTradingPowerAccountAdmin)
 
 
 class StockListMarginAdmin(admin.ModelAdmin):
@@ -427,9 +370,10 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         }),
        
     )
-    search_fields = ['account__id','account__name','stock__stock']
+    # search_fields = ['account__id','account__name','stock__stock']
     list_filter = [
         'account__name',
+        'stock__stock',
         'partner__name',
         ('date', DateRangeFilter),  # Bộ lọc ngày từ ngày - đến ngày
     ]
@@ -620,10 +564,14 @@ class CashTransferForm(forms.ModelForm):
 
 class CashTransferAdmin(admin.ModelAdmin):
     form  = CashTransferForm
-    list_display = ['account', 'date', 'formatted_amount', 'user_created', 'user_modified', 'created_at']
+    list_display = ['account','partner', 'date', 'formatted_amount', 'user_created', 'user_modified', 'created_at']
     readonly_fields = ['user_created', 'user_modified']
     search_fields = ['account__id','account__name']
-    list_filter = ['account__name',]
+    list_filter = [
+        'account__name',
+        'partner__name',
+        ('date', DateRangeFilter),  # Bộ lọc ngày từ ngày - đến ngày
+    ]
     
 
     def get_readonly_fields(self, request, obj=None):

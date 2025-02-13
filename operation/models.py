@@ -16,12 +16,16 @@ from cpd.models import *
 from django.contrib.auth.hashers import make_password
 from regulations.models import *
 from accfifo import Entry, FIFO
-import asyncio
+from regulations.models import BotTelegram
 import logging
 
 
-def send_notification(bot_token, chat_id,message):
+def send_notification(message):
+    bot= BotTelegram.objects.all().first()
+    bot_token = bot.token
+    chat_id =bot.bot_id
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
     data = {'chat_id': chat_id, 'text': message}
     
     response = requests.post(url, data=data)
@@ -32,6 +36,7 @@ def send_notification(bot_token, chat_id,message):
         print("Failed to send message.")
 
 
+        
 
 def cal_avg_price(account,stock, date_time): 
     item_transactions = Transaction.objects.filter(account=account, stock__stock = stock, created_at__gt =date_time).order_by('date','created_at')
@@ -178,7 +183,7 @@ class Account (models.Model):
         status = ""
         port = Portfolio.objects.filter(account_id = self.pk, sum_stock__gt=0).first()
         if port:
-            price_force_sell = round(-self.cash_balance/( 0.87* port.sum_stock),0)
+            price_force_sell = round(-self.cash_balance/(( 1- self.force_sell_margin_ratio)* port.sum_stock),0)
             if abs(self.cash_balance) >1000 and value_force !=0:
                 if check <= self.maintenance_margin_ratio and check >self.force_sell_margin_ratio:
                     status = f"CẢNH BÁO, số âm {value_force_str}, giá bán {port.stock}: {'{:,.0f}'.format(price_force_sell)}"
@@ -187,7 +192,26 @@ class Account (models.Model):
 
                 return status
    
-    
+    @property
+    def partner(self):
+        milestone_account = AccountMilestone.objects.filter(account=self).order_by('-created_at').first()
+        if milestone_account:
+            date_previous = milestone_account.created_at
+        else:
+            date_previous = self.created_at
+        first_transaction = Transaction.objects.filter(account = self,created_at__gt = date_previous).order_by('-created_at').first()
+        first_cash = CashTransfer.objects.filter(account = self,created_at__gt = date_previous).order_by('-created_at').first()
+        # Xử lý khi một trong hai là None
+        if first_transaction is None and first_cash:
+            return first_cash.partner
+        elif first_cash is None and first_transaction:
+            return first_transaction.partner
+        # Xác định record nào có thời gian sớm nhất
+        elif first_transaction and first_cash:
+            return first_transaction.partner if first_transaction.created_at < first_cash.created_at else first_cash.partner
+        else:
+            return None
+
     def save(self, *args, **kwargs):
     # Your first save method code
         print('bắt đầu save')
@@ -216,18 +240,13 @@ class Account (models.Model):
             self.margin_ratio = abs(round((self.nav / total_value_buy), 2))
         self.total_temporarily_pl= self.nav - self.net_cash_flow
         self.total_pl  = self.total_temporarily_pl + self.total_closed_pl
-        # bot = Bot(token='5806464470:AAH9bLZxhx6xXDJ9rlPKkhaJ6lKpKRrZEfA')
-        # chat_id ='-4055438156'
-        # if self.status:
-        #     noti = f"Tài khoản {self.pk}, tên {self.name} bị {self.status} "
-        #     asyncio.run(send_notification(bot,chat_id,noti))
-
+        
+        
         # Your second save method code
         print('kết thúc save')
         super(Account, self).save(*args, **kwargs)
 
-        # Additional code from the second save method
-        # ...
+  
 
         # Tạo hoặc cập nhật User
         user, created = User.objects.get_or_create(username=str(self.pk))
@@ -244,6 +263,7 @@ class Account (models.Model):
         # Ghi log khi có hoạt động xóa
         logging.info("delete object {}  ID {}.".format(self.__class__.__name__, self.id))
         super().delete(*args, **kwargs)
+
 #Tạo model với các ngăn tất toán của tài khoản
 class AccountMilestone(models.Model):
     account = models.ForeignKey(Account,on_delete=models.CASCADE,verbose_name="Tài khoản")
@@ -326,17 +346,23 @@ class StockListMargin(models.Model):
     
     @property
     def status(self):
-        if self.max_loan_value ==0:
-                return "KHÔNG CHO VAY"
+        if self.max_loan_value == 0:
+            return "KHÔNG CHO VAY"
+        
         if self.available_loan_value:
-            if self.available_loan_value/self.max_loan_value -1 >0.8:
-                return "CẢNH BÁO đã mua hơn 80% giá trị hạn mức"
-            elif self.available_loan_value > self.max_loan_value:
-                return "CẢNH BÁO mua vượt hạn mức"
+            if self.available_loan_value > 0:
+                if self.available_loan_value / self.max_loan_value  < 0.2:
+                    status = "CẢNH BÁO đã mua hơn 80% giá trị hạn mức"
+                else:
+                    status = "BÌNH THƯỜNG"
             else:
-                return "BÌNH THƯỜNG"
+                status = "CẢNH BÁO mua vượt hạn mức"
+                
+            
         else:
-            return "Không tính được số dư hiện tại"
+            status = "Không tính được số dư hiện tại"
+
+        return status
         
 
 class CashTransfer(models.Model):
@@ -345,6 +371,7 @@ class CashTransfer(models.Model):
     modified_at = models.DateTimeField(auto_now=True, verbose_name = 'Ngày chỉnh sửa' )
     date = models.DateField( default=timezone.now,verbose_name = 'Ngày nộp tiền' )
     amount = models.FloatField(verbose_name = 'Số tiền')
+    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
     description = models.TextField(max_length=255, blank=True,verbose_name = 'Mô tả')
     user_created = models.ForeignKey(User,on_delete=models.CASCADE,null=True, blank= True,                   verbose_name="Người tạo")
     user_modified = models.CharField(max_length=150, blank=True, null=True,
@@ -355,7 +382,15 @@ class CashTransfer(models.Model):
     
     def __str__(self):
         return str(self.amount) 
+    
+    def clean(self):
+        if self.account.partner and self.partner and self.partner != self.account.partner:
+            raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
+
     def save(self, *args, **kwargs):
+        if self.account.partner:
+            self.partner = self.account.partner
+    
         super().save(*args, **kwargs)
         # Ghi log khi có hoạt động lưu
         logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))
@@ -409,6 +444,9 @@ class Transaction (models.Model):
             raise ValidationError('Lỗi giá phải nhập đủ phần nghìn')
         if self.qty < 100: 
             raise ValidationError('Khối lượng bị lẻ')
+        
+        if self.account.partner and self.partner and self.partner != self.account.partner:
+            raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
           
         if self.position == 'sell':
             port = Portfolio.objects.filter(account = self.account, stock =self.stock).first()
@@ -429,6 +467,9 @@ class Transaction (models.Model):
         return partner_net_total_value           
 
     def save(self, *args, **kwargs):
+        if self.account.partner:
+            self.partner = self.account.partner
+    
         self.total_value = self.price*self.qty
         self.transaction_fee = self.total_value*self.account.transaction_fee
         if self.position == 'buy':
@@ -447,6 +488,11 @@ class Transaction (models.Model):
             # Nếu không phải là bản ghi mới, chỉ cập nhật previous khi có sự thay đổi
             self.previous_date = self._original_date
             self.previous_total_value = self._original_total_value
+        
+        #Kiểm tra trạng thái room cho vay của cổ phiếu
+        if "CẢNH BÁO" in self.stock.status:
+            message = f"Cổ phiếu {self.stock.stock}, có trạng thái {self.stock.status}"
+            send_notification(message)
 
         super(Transaction, self).save(*args, **kwargs)
         logging.info("save object {} ID {}.".format(self.__class__.__name__, self.id))

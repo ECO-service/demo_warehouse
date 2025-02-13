@@ -3,24 +3,6 @@ from partner.models import *
 from django.db.models import Sum, Case, When, F, Value, IntegerField
 
 
-
-def real_stock_account_when_update_transaction(partner):
-    # Tìm hoặc tạo một tài khoản RealStockAccount cho đối tác
-    if partner.method_interest == 'dept':
-        real_stock, created = RealStockAccount.objects.get_or_create(partner=partner)
-        # Lấy tất cả các tài khoản của đối tác
-        all_account = AccountPartner.objects.filter(partner=partner).exclude(nav=0)
-        # Tính toán các giá trị tài khoản thực sự
-        cash_balance_open_account = sum(item.cash_balance  for item in all_account)
-        interest_cash_balance = sum(item.cash_t0 +item.total_buy_trading_value +item.net_cash_flow for item in all_account)
-        market_value = sum(item.market_value for item in all_account)
-        # Cập nhật các trường trong tài khoản RealStockAccount
-        real_stock.cash_balance_open_account = cash_balance_open_account
-        real_stock.market_value = market_value
-        real_stock.interest_cash_balance = interest_cash_balance-real_stock.milestone_cash_t1 -real_stock.milestone_cash_t2 +real_stock.net_cash_flow_operation-570765#phí lãi tất toán của tháng 2
-        real_stock.save()
-
-
         
 def update_or_created_expense_partner(instance,account_partner, description_type):
     if description_type=='tax':
@@ -234,37 +216,39 @@ def define_date_receive_cash(initial_date, t_plus):
 
 
 
-
-
-
-    
-        
-
-
-
-
-
-   
-
 # cập nhật giá danh mục => cập nhật giá trị tk chứng khoán
 @receiver (post_save, sender=StockPriceFilter)
 def update_market_price_port(sender, instance, created, **kwargs):
     port = Portfolio.objects.filter(sum_stock__gt=0, stock =instance.ticker)
     port_partner = PortfolioPartner.objects.filter(sum_stock__gt=0, stock =instance.ticker)
     if port:
+        saved_accounts = set()  # Lưu các account đã save
         for item in port:
             new_price = instance.close
-            item.market_price = new_price*item.sum_stock
+            item.market_price = new_price * item.sum_stock
             item.save(update_avg_price=False)  # Không cập nhật avg_price
+            
             account = item.account
-            account.save()
+            if account not in saved_accounts:  # Kiểm tra nếu chưa lưu
+                account.save()
+                saved_accounts.add(account)  # Thêm vào set để tránh lưu lại
+            
+            if account.status:
+                message = f"Tài khoản {account.pk}, tên {account.name} bị {account.status}"
+                send_notification(message)
+
     if port_partner:
+        saved_accounts_partner = set()  # Lưu các account đã save
         for item in port_partner:
             new_price = instance.close
             item.market_price = new_price*item.sum_stock
             item.save(update_avg_price=False)  # Không cập nhật avg_price
             account_partner = item.account
-            account_partner.save()
+            if account_partner not in saved_accounts_partner:  # Kiểm tra nếu chưa lưu
+                account_partner.save()
+                saved_accounts_partner.add(account_partner)  # Thêm vào set để tránh lưu lại
+            
+
 
 
             
@@ -637,29 +621,18 @@ def save_field_account_1(sender, instance, **kwargs):
         if not created:
             cash_items = CashTransfer.objects.filter(account=account,created_at__gt = date_mileston)
             account.net_cash_flow = sum(item.amount for item in cash_items)
-            # update lệnh tiền tk bank tư động
-            bank_cash_transfer = BankCashTransfer.objects.get(customer_cash_id = instance.pk)
-            bank_cash_transfer.amount = instance.amount
-            bank_cash_transfer.date=instance.date
-            bank_cash_transfer.save()
 
         else:
             account.net_cash_flow +=  instance.amount
+           
             #tạo lệnh lệnh tiền tk bank tư động
             if instance.amount >0:
                 description=f"Lệnh nạp tiền tự động từ KH {instance.account}"
             else:
-                description=f"Lệnh rút tiền tự động từ KH {instance.account}"
-            bank_cash_transfer = BankCashTransfer.objects.create(
-                source='TCB-Ha',
-                account=instance.account,
-                amount=instance.amount,
-                type='trade_transfer',
-                date=instance.date,
-                description=description,
-                customer_cash_id = instance.pk
-            )
-        
+                #Thông báo lệnh rút tiền cho superadmin
+                message = f"Tài khoản {instance.account.name}, rút số tiền {"{:,.0f}".format(abs(instance.amount))} từ đối tác {instance.partner}. Sau khi rút, tài sản ròng còn lại là {"{:,.0f}".format(instance.account.nav)}, tỷ lệ nợ là {"{:,.0f}".format(instance.account.margin_ratio)}"
+                send_notification(message)
+                
     elif sender == Transaction:
         portfolio = Portfolio.objects.filter(stock =instance.stock, account= instance.account).first()
         transaction_items = Transaction.objects.filter(account=account,created_at__gt = date_mileston)
@@ -705,6 +678,10 @@ def save_field_account_1(sender, instance, **kwargs):
             portfolio.save()   
     
     account.save()
+    account_partner = AccountPartner.objects.filter(account=account, partner = instance.partner).first()
+    if account_partner:
+        account_partner.net_cash_flow = account.net_cash_flow
+        account_partner.save()
 
         
             
@@ -725,13 +702,6 @@ def delete_expense_statement(sender, instance, **kwargs):
         if commission.total_value<0:
                 commission.total_value=0
         commission.save()
-
-
-@receiver(post_delete, sender=CashTransfer)
-def delete_bankcash(sender, instance, **kwargs):
-    bank_cash_transfer = BankCashTransfer.objects.get(customer_cash_id = instance.pk)
-    if bank_cash_transfer:
-        bank_cash_transfer.delete()  
     
 
 def sum_temporarily_account_when_edit_expense(instance,account,account_expense_period):
@@ -768,49 +738,6 @@ def save_field_account_2_2(sender, instance, **kwargs):
         account_expense_period = ExpenseStatementPartner.objects.filter(account= account_partner , created_at__gt = date_mileston)
         sum_temporarily_account_when_edit_expense(instance, account_partner ,account_expense_period)
 
-@receiver([post_save, post_delete], sender=ExpenseStatementRealStockAccount)
-def save_field_account_2_3(sender, instance, **kwargs):
-    account_real_stock = instance.account
-    current_date = datetime.now()
-    year = current_date.year
-    month = current_date.month
-    if current_date.day == 1:  # Nếu là ngày đầu tháng
-        if month == 1:  # Nếu là tháng 1
-            start_date = datetime(year - 1, 12, 1)
-        else:
-            start_date = datetime(year, month - 1, 1)
-        end_date = datetime(year, month, 1) - timedelta(days=1)
-    else:
-        start_date = datetime(year, month, 1)
-        end_date = datetime(year, month + 1, 1) - timedelta(days=1)
-
-    # Tính tổng amount của các record trong khoảng thời gian có type là 'loan_interest' hoặc 'deposit_interest'
-    total_loan_interest_amount = ExpenseStatementRealStockAccount.objects.filter(
-        account=account_real_stock,
-        date__range=(start_date, end_date),
-        type__in=['loan_interest']
-    ).aggregate(Sum('amount'))['amount__sum'] or 0.0
-
-     
-    account_real_stock.total_temporarily_interest = total_loan_interest_amount
-
-    if current_date.day == 1: 
-        total_deposit_interest_amount = ExpenseStatementRealStockAccount.objects.filter(
-        account=account_real_stock,
-        date__range=(start_date, end_date),
-        type__in=['deposit_interest']
-            ).aggregate(Sum('amount'))['amount__sum'] or 0.0
-        
-        account_real_stock.total_deposit_interest_paid =total_deposit_interest_amount
-        account_real_stock.total_interest_paid += account_real_stock.total_temporarily_interest 
-        account_real_stock.total_temporarily_interest = 0
-    
-    account_real_stock.save()
-        
-        
-                                               
-
-    
         
 @receiver([post_save, post_delete], sender=AccountMilestone)
 def save_field_account_4(sender, instance, **kwargs):
@@ -823,9 +750,7 @@ def save_field_account_4(sender, instance, **kwargs):
         account.total_advance_fee_paid = sum(item.advance_fee_paid for item in item_milestone)
         account.save()
 
-@receiver([post_save, post_delete], sender=AccountPartner)
-def save_field_account_5(sender, instance, **kwargs):
-    real_stock_account_when_update_transaction(instance.partner)
+
 
 #chạy 1 phút 1 lần
 def update_market_price_for_port():
@@ -898,26 +823,7 @@ def calculate_interest():
     #                 interest_cash_balance = instance.interest_cash_balance
     #                 )
     #kt tài khoản ck thực chạy tính lãi
-    real_stock_account_interest = RealStockAccount.objects.filter(partner__method_interest = 'dept')
-    for instance in real_stock_account_interest:
-            formatted_interest_cash_balance= "{:,.0f}".format(instance.interest_cash_balance)
-            if instance.interest_cash_balance >0:
-                amount = 0.0001  * instance.interest_cash_balance/instance.partner.total_date_interest
-                type = 'deposit_interest'
-                description = f"Số dư tính lãi tiền gửi không kì hạn {formatted_interest_cash_balance}"
-                
-            else:
-                type = 'loan_interest'
-                amount =instance.partner.ratio_interest_fee  * instance.interest_cash_balance/instance.partner.total_date_interest
-                description = f"Số dư tính lãi vay {formatted_interest_cash_balance}"
-            ExpenseStatementRealStockAccount.objects.create(
-                    account=instance,
-                    date=datetime.now().date()-timedelta(days=1),
-                    type = type,
-                    amount = amount,
-                    description=description,
-                    interest_cash_balance = instance.interest_cash_balance
-                    )
+    
 
 def pay_money_back():
     # chạy tk tổng
@@ -938,11 +844,7 @@ def pay_money_back():
             instance.cash_t1= instance.cash_t2
             instance.cash_t2 =0
             instance.save()
-    real_stock = RealStockAccount.objects.filter(Q(milestone_cash_t2__gt=0) | Q(milestone_cash_t1__gt=0))
-    for item in real_stock:
-        item.milestone_cash_t1 = 0
-        item.milestone_cash_t1+= item.milestone_cash_t2
-        item.save()
+    
 
 
 def atternoon_check():
@@ -1083,29 +985,8 @@ def setle_milestone_account_partner(account_partner):
         #             description = description,
         #             advance_cash_balance = account_partner.advance_cash_balance
         #             )
-        withdraw_cash = BankCashTransfer.objects.create(
-                source='TCB-Ha',
-                partner = account_partner.partner,
-                account=account_partner.account,
-                amount= account_partner.nav,
-                type='trade_transfer',
-                date=date,
-                description=f"Lệnh chuyển tiền tự động từ tiểu khoản {account_partner} đến TKNH khi tất toán ",
-            )
-        if partner.name == 'MCF':
-            cash_in = BankCashTransfer.objects.create(
-                    source='TCB-Ha',
-                    partner = account_partner.partner,
-                    amount= -account_partner.nav,
-                    type='trade_transfer',
-                    date=date,
-                    description=f"Lệnh chuyển tiền từ TKNH đến TKCK của MCF khi tất toán" ,
-                )
-        # reset thong so account_partner
-        real_stock= RealStockAccount.objects.get(partner=partner)
-        real_stock.milestone_cash_t2 += account_partner.cash_t2
-        real_stock.milestone_cash_t1 += account_partner.cash_t1
-        real_stock.save()
+        
+    
         account_partner.cash_t0 = 0
         account_partner.cash_t1 = 0
         account_partner.cash_t2 = 0
@@ -1129,9 +1010,10 @@ def setle_milestone_account(account):
     status = False
     if account.market_value == 0  and account.total_temporarily_interest !=0:  
         date=datetime.now().date()
-
+        partner = CashTransfer.objects.filter(account = account, amount__gt=0).order_by('-date')[0].partner
         withdraw_cash = CashTransfer.objects.create(
             account = account,
+            partner = partner,
             date = date,
             amount = -account.nav,
             description = "Tất toán tài khoản, lệnh rút tiền tự động",      
