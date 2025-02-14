@@ -22,4 +22,4 @@ class StockPriceFilterAdmin(admin.ModelAdmin):
     )
 
 admin.site.register(StockPriceFilter, StockPriceFilterAdmin)
-admin.site.register(DividendManage)
+# admin.site.register(DividendManage)

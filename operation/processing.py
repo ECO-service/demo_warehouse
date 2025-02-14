@@ -4,33 +4,33 @@ from django.db.models import Sum, Case, When, F, Value, IntegerField
 
 
         
-def update_or_created_expense_partner(instance,account_partner, description_type):
-    if description_type=='tax':
-        amount = instance.tax*-1
-        description = f"Thuế với lệnh bán {instance.stock} số lượng {"{:,.0f}".format(instance.qty)} và giá {"{:,.0f}".format(instance.price)} "
-    elif description_type== 'transaction_fee':
-        ratio_transaction_fee = instance.partner.ratio_trading_fee
-        amount = -instance.total_value*ratio_transaction_fee
-        description = f"PGD phát sinh với lệnh {instance.position} {instance.stock} số lượng {"{:,.0f}".format(instance.qty)} và giá {"{:,.0f}".format(instance.price) } "
-    elif description_type== 'advance_fee':
-        partner = instance.partner
-        ratio_interest_fee = partner.ratio_interest_fee
-        total_date_interest =partner.total_date_interest
-        number_interest = define_date_receive_cash(instance.date,2)[1]
-        amount = -ratio_interest_fee *instance.total_value*number_interest /total_date_interest  
-        description = f"TK {account_partner} tính phí ứng tiền bán cho {number_interest} ngày, số dư tính phí là {"{:,.0f}".format(instance.total_value)}"
+# def update_or_created_expense_partner(instance,account_partner, description_type):
+#     if description_type=='tax':
+#         amount = instance.tax*-1
+#         description = f"Thuế với lệnh bán {instance.stock} số lượng {"{:,.0f}".format(instance.qty)} và giá {"{:,.0f}".format(instance.price)} "
+#     elif description_type== 'transaction_fee':
+#         ratio_transaction_fee = instance.partner.ratio_trading_fee
+#         amount = -instance.total_value*ratio_transaction_fee
+#         description = f"PGD phát sinh với lệnh {instance.position} {instance.stock} số lượng {"{:,.0f}".format(instance.qty)} và giá {"{:,.0f}".format(instance.price) } "
+#     elif description_type== 'advance_fee':
+#         partner = instance.partner
+#         ratio_interest_fee = partner.ratio_interest_fee
+#         total_date_interest =partner.total_date_interest
+#         number_interest = define_date_receive_cash(instance.date,2)[1]
+#         amount = -ratio_interest_fee *instance.total_value*number_interest /total_date_interest  
+#         description = f"TK {account_partner} tính phí ứng tiền bán cho {number_interest} ngày, số dư tính phí là {"{:,.0f}".format(instance.total_value)}"
                 
-    ExpenseStatementPartner.objects.update_or_create(
-        transaction_id=instance.pk,
-        type=description_type,
-        defaults={
-            'account': account_partner,
-            'date': instance.date,
-            'amount': amount,
-            'description': description,
+#     ExpenseStatementPartner.objects.update_or_create(
+#         transaction_id=instance.pk,
+#         type=description_type,
+#         defaults={
+#             'account': account_partner,
+#             'date': instance.date,
+#             'amount': amount,
+#             'description': description,
     
-        }
-    )
+#         }
+#     )
 
 
 def define_t_plus(initial_date, date_milestone):
@@ -53,127 +53,127 @@ def define_t_plus(initial_date, date_milestone):
     except Exception as e:
         print(f'Lỗi: {e}')
 
-def created_transaction_partner(instance,account,date_mileston):
-    partner = instance.partner
+# def created_transaction_partner(instance,account,date_mileston):
+#     partner = instance.partner
  
-    account_partner , created= AccountPartner.objects.get_or_create(
-        account=account,
-        partner=partner,
-        defaults={'description': ''}  # Trường 'description' không bị cập nhật
-    )
-    if account_partner.milestone_date_lated:
-        date_mileston_apply = account_partner.milestone_date_lated
-    else:
-        date_mileston_apply = date_mileston
-    # tạo phí giao dịch
-    update_or_created_expense_partner(instance,account_partner, description_type='transaction_fee')
-    if instance.position == 'buy':
-        #điều chỉnh account partner
-        account_partner.net_trading_value += instance.partner_net_total_value # Dẫn tới thay đổi cash_balace, nav, pl
-        account_partner.total_buy_trading_value+= instance.partner_net_total_value #Dẫn tới thay đổi interest_cash_balance 
-        if partner.method_interest == 'total_buy_value':    
-            account_partner.interest_cash_balance += instance.partner_net_total_value
-        try:
-            portfolio_partner = PortfolioPartner.objects.get(stock=instance.stock, account=account_partner)
-            # Nếu đối tượng tồn tại, điều chỉnh danh mục
-            portfolio_partner.receiving_t2 += instance.qty
-            portfolio_partner.save()
-        except PortfolioPartner.DoesNotExist:
-            # Nếu không tìm thấy, tạo danh mục mới
-            PortfolioPartner.objects.create(
-                stock=instance.stock,
-                account=account_partner,
-                receiving_t2=instance.qty,
-            )
+#     account_partner , created= AccountPartner.objects.get_or_create(
+#         account=account,
+#         partner=partner,
+#         defaults={'description': ''}  # Trường 'description' không bị cập nhật
+#     )
+#     if account_partner.milestone_date_lated:
+#         date_mileston_apply = account_partner.milestone_date_lated
+#     else:
+#         date_mileston_apply = date_mileston
+#     # tạo phí giao dịch
+#     update_or_created_expense_partner(instance,account_partner, description_type='transaction_fee')
+#     if instance.position == 'buy':
+#         #điều chỉnh account partner
+#         account_partner.net_trading_value += instance.partner_net_total_value # Dẫn tới thay đổi cash_balace, nav, pl
+#         account_partner.total_buy_trading_value+= instance.partner_net_total_value #Dẫn tới thay đổi interest_cash_balance 
+#         if partner.method_interest == 'total_buy_value':    
+#             account_partner.interest_cash_balance += instance.partner_net_total_value
+#         try:
+#             portfolio_partner = PortfolioPartner.objects.get(stock=instance.stock, account=account_partner)
+#             # Nếu đối tượng tồn tại, điều chỉnh danh mục
+#             portfolio_partner.receiving_t2 += instance.qty
+#             portfolio_partner.save()
+#         except PortfolioPartner.DoesNotExist:
+#             # Nếu không tìm thấy, tạo danh mục mới
+#             PortfolioPartner.objects.create(
+#                 stock=instance.stock,
+#                 account=account_partner,
+#                 receiving_t2=instance.qty,
+#             )
         
-    elif instance.position == 'sell':
-        # điều chỉnh danh mục
-        portfolio_partner = PortfolioPartner.objects.get(stock=instance.stock, account=account_partner)
-        portfolio_partner.on_hold = portfolio_partner.on_hold -instance.qty
-        portfolio_partner.save()
-        #điều chỉnh account_partner
-        end_date = datetime.now().date()
-        account_partner.net_trading_value += instance.partner_net_total_value # Dẫn tới thay đổi cash_balace, nav, pl
-        if partner.method_interest == 'total_buy_value':
-            account_partner.cash_t2 += instance.total_value #Dẫn tới thay đổi cash_t0 trong tương lai và thay đổi interest_cash_balance 
-            account_partner.interest_cash_balance =define_interest_cash_balace(account_partner.account, date_mileston_apply, end_date,account_partner)
-        else:
-            account_partner.cash_t2 += instance.partner_net_total_value
-        update_or_created_expense_partner(instance,account_partner, description_type='tax')
-        # tạo phí ứng
-        if partner.method_interest == 'total_buy_value':
-            update_or_created_expense_partner(instance,account_partner, description_type='advance_fee')
+#     elif instance.position == 'sell':
+#         # điều chỉnh danh mục
+#         portfolio_partner = PortfolioPartner.objects.get(stock=instance.stock, account=account_partner)
+#         portfolio_partner.on_hold = portfolio_partner.on_hold -instance.qty
+#         portfolio_partner.save()
+#         #điều chỉnh account_partner
+#         end_date = datetime.now().date()
+#         account_partner.net_trading_value += instance.partner_net_total_value # Dẫn tới thay đổi cash_balace, nav, pl
+#         if partner.method_interest == 'total_buy_value':
+#             account_partner.cash_t2 += instance.total_value #Dẫn tới thay đổi cash_t0 trong tương lai và thay đổi interest_cash_balance 
+#             account_partner.interest_cash_balance =define_interest_cash_balace(account_partner.account, date_mileston_apply, end_date,account_partner)
+#         else:
+#             account_partner.cash_t2 += instance.partner_net_total_value
+#         update_or_created_expense_partner(instance,account_partner, description_type='tax')
+#         # tạo phí ứng
+#         if partner.method_interest == 'total_buy_value':
+#             update_or_created_expense_partner(instance,account_partner, description_type='advance_fee')
     
-    account_partner.save()
+#     account_partner.save()
 
-def partner_update_transaction(instance,date_mileston):
-    account_partner = AccountPartner.objects.get(account=instance.account, partner=instance.partner)
-    if account_partner.milestone_date_lated:
-        date_mileston_apply = account_partner.milestone_date_lated
-    else:
-        date_mileston_apply = date_mileston
-    transaction = Transaction.objects.filter(account = instance.account,partner =instance.partner,created_at__gt = date_mileston_apply)
-    # sửa chi phí
-    update_or_created_expense_partner(instance,account_partner, description_type='transaction_fee')
-    if instance.position == 'sell':
-        update_or_created_expense_partner(instance,account_partner, description_type='tax')
-        # bổ sung phí ứng
-        if instance.partner.method_interest == 'total_buy_value':
-            update_or_created_expense_partner(instance,account_partner, description_type='advance_fee')
-    # sửa danh mục
-    portfolio_partner = PortfolioPartner.objects.filter(stock =instance.stock, account= account_partner).first()
-    stock_transaction = transaction.filter(stock = instance.stock)
-    sum_sell = sum(item.qty for item in stock_transaction if item.position =='sell')
-    item_buy = stock_transaction.filter( position = 'buy')
+# def partner_update_transaction(instance,date_mileston):
+#     account_partner = AccountPartner.objects.get(account=instance.account, partner=instance.partner)
+#     if account_partner.milestone_date_lated:
+#         date_mileston_apply = account_partner.milestone_date_lated
+#     else:
+#         date_mileston_apply = date_mileston
+#     transaction = Transaction.objects.filter(account = instance.account,partner =instance.partner,created_at__gt = date_mileston_apply)
+#     # sửa chi phí
+#     update_or_created_expense_partner(instance,account_partner, description_type='transaction_fee')
+#     if instance.position == 'sell':
+#         update_or_created_expense_partner(instance,account_partner, description_type='tax')
+#         # bổ sung phí ứng
+#         if instance.partner.method_interest == 'total_buy_value':
+#             update_or_created_expense_partner(instance,account_partner, description_type='advance_fee')
+#     # sửa danh mục
+#     portfolio_partner = PortfolioPartner.objects.filter(stock =instance.stock, account= account_partner).first()
+#     stock_transaction = transaction.filter(stock = instance.stock)
+#     sum_sell = sum(item.qty for item in stock_transaction if item.position =='sell')
+#     item_buy = stock_transaction.filter( position = 'buy')
     
-    if portfolio_partner:
-        receiving_t2,receiving_t1,on_hold =0,0,0
-        today  = datetime.now().date()      
-        for item in item_buy:
-            if define_t_plus(item.date, today) == 0:
-                receiving_t2 += item.qty                           
-            elif define_t_plus(item.date, today) == 1:
-                receiving_t1 += item.qty                             
-            else:
-                on_hold += item.qty
+#     if portfolio_partner:
+#         receiving_t2,receiving_t1,on_hold =0,0,0
+#         today  = datetime.now().date()      
+#         for item in item_buy:
+#             if define_t_plus(item.date, today) == 0:
+#                 receiving_t2 += item.qty                           
+#             elif define_t_plus(item.date, today) == 1:
+#                 receiving_t1 += item.qty                             
+#             else:
+#                 on_hold += item.qty
 
-        on_hold = on_hold - sum_sell
+#         on_hold = on_hold - sum_sell
                                            
-        portfolio_partner.receiving_t2 = receiving_t2
-        portfolio_partner.receiving_t1 = receiving_t1
-        portfolio_partner.on_hold = on_hold
-        portfolio_partner.save()
-    # sửa tài khoản    
-    item_all_sell = transaction.filter(position = 'sell')
-    cash_t0, cash_t1, cash_t2 =0,0,0
-    total_value_buy= sum(i.net_total_value for i in transaction if i.position =='buy')
-    today  = datetime.now().date()  
-    if item_all_sell:
-        for item in item_all_sell:
-            if define_t_plus(item.date,today) == 0:
-                if account_partner.partner.method_interest == 'total_buy_value':
-                    account_partner.interest_cash_balance =define_interest_cash_balace(account_partner.account, date_mileston_apply,today,account_partner)
-                    cash_t2 += item.total_value 
-                else:
-                    cash_t2+= item.partner_net_total_value
-            elif define_t_plus(item.date, today) == 1:
-                if account_partner.partner.method_interest == 'total_buy_value':
-                    cash_t1 += item.total_value 
-                else:
-                    cash_t1+= item.partner_net_total_value
-            else:
-                if account_partner.partner.method_interest == 'total_buy_value':
-                    cash_t0 += item.total_value 
-                else:
-                    cash_t0+= item.partner_net_total_value
-        account_partner.cash_t2 = cash_t2
-        account_partner.cash_t1 = cash_t1
-        account_partner.cash_t0 = cash_t0
-    account_partner.total_buy_trading_value = total_value_buy
-    account_partner.net_trading_value = sum(item.partner_net_total_value for item in transaction)
-    end_date = datetime.now().date()
+#         portfolio_partner.receiving_t2 = receiving_t2
+#         portfolio_partner.receiving_t1 = receiving_t1
+#         portfolio_partner.on_hold = on_hold
+#         portfolio_partner.save()
+#     # sửa tài khoản    
+#     item_all_sell = transaction.filter(position = 'sell')
+#     cash_t0, cash_t1, cash_t2 =0,0,0
+#     total_value_buy= sum(i.net_total_value for i in transaction if i.position =='buy')
+#     today  = datetime.now().date()  
+#     if item_all_sell:
+#         for item in item_all_sell:
+#             if define_t_plus(item.date,today) == 0:
+#                 if account_partner.partner.method_interest == 'total_buy_value':
+#                     account_partner.interest_cash_balance =define_interest_cash_balace(account_partner.account, date_mileston_apply,today,account_partner)
+#                     cash_t2 += item.total_value 
+#                 else:
+#                     cash_t2+= item.partner_net_total_value
+#             elif define_t_plus(item.date, today) == 1:
+#                 if account_partner.partner.method_interest == 'total_buy_value':
+#                     cash_t1 += item.total_value 
+#                 else:
+#                     cash_t1+= item.partner_net_total_value
+#             else:
+#                 if account_partner.partner.method_interest == 'total_buy_value':
+#                     cash_t0 += item.total_value 
+#                 else:
+#                     cash_t0+= item.partner_net_total_value
+#         account_partner.cash_t2 = cash_t2
+#         account_partner.cash_t1 = cash_t1
+#         account_partner.cash_t0 = cash_t0
+#     account_partner.total_buy_trading_value = total_value_buy
+#     account_partner.net_trading_value = sum(item.partner_net_total_value for item in transaction)
+#     end_date = datetime.now().date()
     
-    account_partner.save()
+#     account_partner.save()
 
 def define_t_plus(initial_date, date_milestone):
     try:
@@ -194,11 +194,6 @@ def define_t_plus(initial_date, date_milestone):
             print(f'Lỗi: date_milestone không lớn hơn hoặc bằng initial_date')
     except Exception as e:
         print(f'Lỗi: {e}')
-
-
-
-    
-
 
 
 def define_date_receive_cash(initial_date, t_plus):
@@ -220,7 +215,7 @@ def define_date_receive_cash(initial_date, t_plus):
 @receiver (post_save, sender=StockPriceFilter)
 def update_market_price_port(sender, instance, created, **kwargs):
     port = Portfolio.objects.filter(sum_stock__gt=0, stock =instance.ticker)
-    port_partner = PortfolioPartner.objects.filter(sum_stock__gt=0, stock =instance.ticker)
+    # port_partner = PortfolioPartner.objects.filter(sum_stock__gt=0, stock =instance.ticker)
     if port:
         saved_accounts = set()  # Lưu các account đã save
         for item in port:
@@ -237,16 +232,16 @@ def update_market_price_port(sender, instance, created, **kwargs):
                 message = f"Tài khoản {account.pk}, tên {account.name} bị {account.status}"
                 send_notification(message)
 
-    if port_partner:
-        saved_accounts_partner = set()  # Lưu các account đã save
-        for item in port_partner:
-            new_price = instance.close
-            item.market_price = new_price*item.sum_stock
-            item.save(update_avg_price=False)  # Không cập nhật avg_price
-            account_partner = item.account
-            if account_partner not in saved_accounts_partner:  # Kiểm tra nếu chưa lưu
-                account_partner.save()
-                saved_accounts_partner.add(account_partner)  # Thêm vào set để tránh lưu lại
+    # if port_partner:
+    #     saved_accounts_partner = set()  # Lưu các account đã save
+    #     for item in port_partner:
+    #         new_price = instance.close
+    #         item.market_price = new_price*item.sum_stock
+    #         item.save(update_avg_price=False)  # Không cập nhật avg_price
+    #         account_partner = item.account
+    #         if account_partner not in saved_accounts_partner:  # Kiểm tra nếu chưa lưu
+    #             account_partner.save()
+    #             saved_accounts_partner.add(account_partner)  # Thêm vào set để tránh lưu lại
             
 
 
@@ -629,9 +624,19 @@ def save_field_account_1(sender, instance, **kwargs):
             if instance.amount >0:
                 description=f"Lệnh nạp tiền tự động từ KH {instance.account}"
             else:
-                #Thông báo lệnh rút tiền cho superadmin
-                message = f"Tài khoản {instance.account.name}, rút số tiền {"{:,.0f}".format(abs(instance.amount))} từ đối tác {instance.partner}. Sau khi rút, tài sản ròng còn lại là {"{:,.0f}".format(instance.account.nav)}, tỷ lệ nợ là {"{:,.0f}".format(instance.account.margin_ratio)}"
-                send_notification(message)
+                if account.excess_equity > 0 and account.margin_ratio > 0.15 and account.nav > 0:
+                    description = "Lệnh rút tiền hợp lệ\n"
+                else:
+                    description = "Lệnh rút tiền KHÔNG hợp lệ\n"
+
+                # Thông báo lệnh rút tiền cho superadmin
+                message = (
+                    f"Tài khoản {instance.account.name}, rút số tiền {'{:,.0f}'.format(abs(instance.amount))} từ đối tác {instance.partner}. Trạng thái tài khoản:\n"
+                    f"- Tài sản ròng: {'{:,.0f}'.format(instance.account.nav)}\n"
+                    f"- Tỷ lệ margin: {round(instance.account.margin_ratio * 100, 2)}%"
+                )
+                send_notification(description + message)
+
                 
     elif sender == Transaction:
         portfolio = Portfolio.objects.filter(stock =instance.stock, account= instance.account).first()
@@ -650,8 +655,8 @@ def save_field_account_1(sender, instance, **kwargs):
             # sửa account
             update_account_transaction( account, transaction_items,date_mileston)
             # sửa accout_partner
-            if instance.partner and instance.total_value != instance.previous_total_value:
-                partner_update_transaction(instance,date_mileston)         
+            # if instance.partner and instance.total_value != instance.previous_total_value:
+            #     partner_update_transaction(instance,date_mileston)         
             # sửa hoa hồng cp
             if account.cpd:
                 account_all = Account.objects.all()
@@ -671,17 +676,17 @@ def save_field_account_1(sender, instance, **kwargs):
                 update_or_created_expense_transaction(instance, 'advance_fee')
             if account.cpd:
                 cp_create_transaction(instance)
-            #xủ lí account partner
-            if instance.partner:
-                created_transaction_partner(instance,account,date_mileston)
+            # #xủ lí account partner
+            # if instance.partner:
+            #     created_transaction_partner(instance,account,date_mileston)
         if portfolio:
             portfolio.save()   
     
     account.save()
-    account_partner = AccountPartner.objects.filter(account=account, partner = instance.partner).first()
-    if account_partner:
-        account_partner.net_cash_flow = account.net_cash_flow
-        account_partner.save()
+    # account_partner = AccountPartner.objects.filter(account=account, partner = instance.partner).first()
+    # if account_partner:
+    #     account_partner.net_cash_flow = account.net_cash_flow
+    #     account_partner.save()
 
         
             
@@ -690,10 +695,10 @@ def delete_expense_statement(sender, instance, **kwargs):
     expense = ExpenseStatement.objects.filter(transaction_id=instance.pk)
     if expense:
         expense.delete()  
-    # điều chỉnh chi phí partner 
-    expense_partner = ExpenseStatementPartner.objects.filter(transaction_id=instance.pk)
-    if expense_partner:
-        expense_partner.delete()  
+    # # điều chỉnh chi phí partner 
+    # expense_partner = ExpenseStatementPartner.objects.filter(transaction_id=instance.pk)
+    # if expense_partner:
+    #     expense_partner.delete()  
     # điều chỉnh hoa hồng
     if instance.account.cpd:
         month_year=define_month_year_cp_commission(instance.date)   
@@ -725,18 +730,18 @@ def save_field_account_2_1(sender, instance, **kwargs):
     account_expense_period = ExpenseStatement.objects.filter(account= account , created_at__gt = date_mileston)
     sum_temporarily_account_when_edit_expense(instance,account,account_expense_period)
 
-@receiver([post_save, post_delete], sender=ExpenseStatementPartner)
-def save_field_account_2_2(sender, instance, **kwargs):
-    account_partner = instance.account
-    if account_partner.partner.method_interest == 'total_buy_value':
-        account = account_partner.account
-        lated_mileston = account_partner.milestone_date_lated
-        if lated_mileston:
-            date_mileston = lated_mileston
-        else:
-            date_mileston = account.created_at
-        account_expense_period = ExpenseStatementPartner.objects.filter(account= account_partner , created_at__gt = date_mileston)
-        sum_temporarily_account_when_edit_expense(instance, account_partner ,account_expense_period)
+# @receiver([post_save, post_delete], sender=ExpenseStatementPartner)
+# def save_field_account_2_2(sender, instance, **kwargs):
+#     account_partner = instance.account
+#     if account_partner.partner.method_interest == 'total_buy_value':
+#         account = account_partner.account
+#         lated_mileston = account_partner.milestone_date_lated
+#         if lated_mileston:
+#             date_mileston = lated_mileston
+#         else:
+#             date_mileston = account.created_at
+#         account_expense_period = ExpenseStatementPartner.objects.filter(account= account_partner , created_at__gt = date_mileston)
+#         sum_temporarily_account_when_edit_expense(instance, account_partner ,account_expense_period)
 
         
 @receiver([post_save, post_delete], sender=AccountMilestone)
@@ -835,15 +840,15 @@ def pay_money_back():
             instance.cash_t1= instance.cash_t2
             instance.cash_t2 =0
             instance.save()
-    # chạy tk con
-    account_partner = AccountPartner.objects.all()
-    if account:
-        for instance in account_partner:
-        # chuyển tiền dời lên 1 ngày
-            instance.cash_t0 += instance.cash_t1
-            instance.cash_t1= instance.cash_t2
-            instance.cash_t2 =0
-            instance.save()
+    # # chạy tk con
+    # account_partner = AccountPartner.objects.all()
+    # if account:
+    #     for instance in account_partner:
+    #     # chuyển tiền dời lên 1 ngày
+    #         instance.cash_t0 += instance.cash_t1
+    #         instance.cash_t1= instance.cash_t2
+    #         instance.cash_t2 =0
+    #         instance.save()
     
 
 
@@ -858,17 +863,17 @@ def atternoon_check():
             item.receiving_t1 = item.receiving_t2  - qty_buy_today
             item.receiving_t2 = qty_buy_today
             item.save()
-    # chạy tk con
-    port_partner = PortfolioPartner.objects.filter(sum_stock__gt=0)
-    if port_partner:
-        for item in port_partner:
-            partner = item.account.partner
-            buy_today = Transaction.objects.filter(account = item.account.account,partner =partner,position ='buy',date = datetime.now().date(),stock__stock = item.stock)
-            qty_buy_today = sum(item.qty for item in buy_today )
-            item.on_hold += item.receiving_t1
-            item.receiving_t1 = item.receiving_t2  - qty_buy_today
-            item.receiving_t2 = qty_buy_today
-            item.save()
+    # # chạy tk con
+    # port_partner = PortfolioPartner.objects.filter(sum_stock__gt=0)
+    # if port_partner:
+    #     for item in port_partner:
+    #         partner = item.account.partner
+    #         buy_today = Transaction.objects.filter(account = item.account.account,partner =partner,position ='buy',date = datetime.now().date(),stock__stock = item.stock)
+    #         qty_buy_today = sum(item.qty for item in buy_today )
+    #         item.on_hold += item.receiving_t1
+    #         item.receiving_t1 = item.receiving_t2  - qty_buy_today
+    #         item.receiving_t2 = qty_buy_today
+    #         item.save()
             
 
 def check_dividend_recevie():
@@ -942,13 +947,16 @@ def save_event_stock(stock):
                     )
     return list_event
 
-def check_dividend():
+def check_dividend_and_notify():
+    list_event = get_dividend_data()
     signal = Portfolio.objects.filter(sum_stock__gt=0).distinct('stock') 
-    for stock in signal:
-        dividend = save_event_stock(stock.stock)
-    dividend_today = DividendManage.objects.filter(date_apply =datetime.now().date() )
-    for i in dividend_today:
-        i.save()
+    for item in signal:
+        for event in list_event:
+            if item.stock == event['code']:
+                message = f"Tài khoản {item.account}, có {item.stock} sẽ nhận cổ tức ngày {event['effectiveDate']}"
+                send_notification(message)
+                
+
 
 def setle_milestone_account_partner(account_partner):
     status = False

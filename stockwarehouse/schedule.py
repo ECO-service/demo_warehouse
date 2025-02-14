@@ -11,7 +11,7 @@ def schedule_morning():
     check_in_dates =  DateNotTrading.objects.filter(date=today).exists()
     if not (check_in_dates or weekday == 5 or weekday == 6):
         try:
-            check_dividend_recevie()
+            check_dividend_and_notify()
         except Exception as e_check_dividend:
             print(f"An error occurred while running check_dividend: {e_check_dividend}")
         

@@ -56,10 +56,10 @@ class MyChangeList2(ChangeList):
 
 class BankCashTransferAdmin(admin.ModelAdmin):
     form  = BankCashTransferForm
-    list_display = ['source','type','date','account','partner', 'formatted_amount','description', 'user_created', 'created_at']
-    readonly_fields = ['user_created', 'user_modified','customer_cash_id','type']
-    search_fields = ['account__id','account__name']
-    list_filter = ['account__name', 'partner__name']
+    list_display = ['type','date','partner', 'formatted_amount','description', 'user_created', 'created_at']
+    readonly_fields = ['user_created', 'user_modified',]
+    search_fields = ['account__id','partner__name']
+    list_filter = ['partner__name']
     
     def get_changelist(self, request):
         return MyChangeList1

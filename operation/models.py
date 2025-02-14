@@ -237,7 +237,7 @@ class Account (models.Model):
         self.excess_equity = self.nav - self.initial_margin_requirement
         self.advance_cash_balance = (self.cash_t1 + self.cash_t2)*-1
         if self.market_value != 0:
-            self.margin_ratio = abs(round((self.nav / total_value_buy), 2))
+            self.margin_ratio = self.nav / total_value_buy
         self.total_temporarily_pl= self.nav - self.net_cash_flow
         self.total_pl  = self.total_temporarily_pl + self.total_closed_pl
         
@@ -384,8 +384,9 @@ class CashTransfer(models.Model):
         return str(self.amount) 
     
     def clean(self):
-        if self.account.partner and self.partner and self.partner != self.account.partner:
-            raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
+        if hasattr(self, 'account') and self.account and self.partner:
+            if hasattr(self.account, 'partner') and self.account.partner != self.partner:
+                raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
 
     def save(self, *args, **kwargs):
         if self.account.partner:
@@ -440,13 +441,10 @@ class Transaction (models.Model):
         self._original_total_value =self.total_value
     
     def clean(self):
-        if self.price < 1000: 
-            raise ValidationError('Lỗi giá phải nhập đủ phần nghìn')
-        if self.qty < 100: 
-            raise ValidationError('Khối lượng bị lẻ')
-        
-        if self.account.partner and self.partner and self.partner != self.account.partner:
-            raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
+
+        if hasattr(self, 'account') and self.account and self.partner:
+            if hasattr(self.account, 'partner') and self.account.partner != self.partner:
+                raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
           
         if self.position == 'sell':
             port = Portfolio.objects.filter(account = self.account, stock =self.stock).first()

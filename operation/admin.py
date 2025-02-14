@@ -17,12 +17,18 @@ from import_export.formats.base_formats import XLSX
 from import_export.widgets import ForeignKeyWidget
 from import_export.fields import Field
 from django.utils.timezone import now
+from rangefilter.filters import DateRangeFilter
+from django.contrib.admin import DateFieldListFilter
 
 
 # Register your models here.
 
 
-
+class PartnerInfoProxyAdmin(admin.ModelAdmin):
+    models = PartnerInfo
+    list_display = ['name', 'ratio_trading_fee','ratio_interest_fee','ratio_advance_fee','method_interest','total_date_interest']
+   
+admin.site.register(PartnerInfo,PartnerInfoProxyAdmin)
 
 
 class AccountAdmin(admin.ModelAdmin):
@@ -73,7 +79,7 @@ class AccountAdmin(admin.ModelAdmin):
         return self.formatted_number(obj.nav)
 
     def formatted_margin_ratio(self, obj):
-        return f"{self.formatted_number(obj.margin_ratio*100)}%"
+        return f"{round(obj.margin_ratio * 100, 2)}%"
 
 
     def formatted_total_temporarily_pl(self, obj):
@@ -220,16 +226,6 @@ class TransactionForm(forms.ModelForm):
         model = Transaction
         exclude = ['user_created', 'user_modified']
     
-    # def clean(self):
-    #     cleaned_data = super().clean()
-    #     change = self.instance.pk is not None  # Kiểm tra xem có phải là sửa đổi không
-    #     today = timezone.now().date()
-    #     # Kiểm tra quyền
-    #     if change and self.instance.created_at.date() != today:
-    #             raise ValidationError("Bạn không có quyền sửa đổi các bản ghi được tạo ngày trước đó.")
-    #     return cleaned_data
-    
-
 
 
 class CustomStockWidget(ForeignKeyWidget):
@@ -254,7 +250,7 @@ class TransactionResource(ModelResource):
     def before_import_row(self, row, **kwargs):
         
         """Kiểm tra dữ liệu trước khi import"""
-        required_fields = ['date','partner','account', 'stock', 'position', 'price', 'qty']
+        required_fields = ['date','account', 'stock', 'position', 'price', 'qty']
         
         # Kiểm tra trường bắt buộc không được để trống
         for field in required_fields:
@@ -299,9 +295,10 @@ class TransactionResource(ModelResource):
         partner_id = row.get("partner")
         if partner_id:
             partner = PartnerInfo.objects.filter(id=partner_id).first()
-            if not partner:
-                raise ValidationError(f"Không tìm thấy đối tác: {partner_id}")
-            row["partner"] = partner.id  # Chuyển sang ID để import
+            # kiểm tra nhập partner có đúng không
+            if partner and account.partner != partner:
+                raise ValidationError('Đối tác không khớp với tài khoản.')
+            
 
         """Tính toán giá trị dựa theo logic save của model"""
         request = kwargs.get('request')
@@ -354,8 +351,7 @@ class TransactionResource(ModelResource):
                 raise ValidationError({'qty': f'Không đủ cổ phiếu bán, tổng cổ phiếu khả dụng là {max_sellable_qty}'})
         return super().before_import_row(row, **kwargs)
     
-from rangefilter.filters import DateRangeFilter
-from django.contrib.admin import DateFieldListFilter
+
 
 class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     resource_class = TransactionResource
