@@ -36,7 +36,7 @@ class AccountAdmin(admin.ModelAdmin):
     ordering = ['-nav']
     list_display = ['name','partner', 'id', 'formatted_cash_balance', 'formatted_interest_cash_balance', 'formatted_market_value', 'formatted_nav', 'formatted_margin_ratio','formatted_excess_equity','formatted_total_temporarily_pl', 'custom_status_display','interest_payments']
     fieldsets = [
-        ('Thông tin cơ bản', {'fields': ['name','cpd','user_created','description']}),
+        ('Thông tin cơ bản', {'fields': ['name','partner','cpd','user_created','description']}),
         ('Biểu phí tài khoản', {'fields': ['interest_fee', 'transaction_fee', 'tax','credit_limit','maintenance_margin_ratio','force_sell_margin_ratio']}),
         ('Trạng thái tài khoản', {'fields': ['cash_balance', 'interest_cash_balance','advance_cash_balance','net_cash_flow','net_trading_value','market_value','nav','initial_margin_requirement','margin_ratio','excess_equity','custom_status_display','milestone_date_lated']}),
         ('Thông tin lãi và phí ứng', {'fields': ['total_loan_interest','total_interest_paid','total_temporarily_interest','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee']}),
@@ -48,7 +48,7 @@ class AccountAdmin(admin.ModelAdmin):
                        'cash_t0','total_buy_trading_value','milestone_date_lated','advance_cash_balance','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee'
                        ]
     search_fields = ['id','name']
-    list_filter = ['name',]
+    list_filter = ['name','partner__name']
     
     def save_model(self, request, obj, form, change):
         # Lưu người dùng đang đăng nhập vào trường user nếu đang tạo cart mới
@@ -362,7 +362,7 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     readonly_fields = ['user_created','user_modified','transaction_fee','tax','total_value','net_total_value']
     fieldsets = (
         ('Thông tin giao dịch', {
-            'fields': ('account','partner', 'date', 'stock', 'position', 'price', 'qty')
+            'fields': ('account', 'date', 'stock', 'position', 'price', 'qty')
         }),
        
     )
@@ -370,7 +370,7 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     list_filter = [
         'account__name',
         'stock__stock',
-        'partner__name',
+        'partner',
         ('date', DateRangeFilter),  # Bộ lọc ngày từ ngày - đến ngày
     ]
     
@@ -448,7 +448,7 @@ admin.site.register(Transaction,TransactionAdmin)
 class PortfolioAdmin(admin.ModelAdmin):
     model = Portfolio
     list_display = ['account', 'stock', 'formatted_market_price', 'formatted_avg_price', 'formatted_on_hold', 'formatted_receiving_t1', 'formatted_receiving_t2', 'formatted_profit', 'percent_profit', 'formatted_sum_stock']
-    readonly_fields = ['account','stock','market_price','avg_price','on_hold','receiving_t1','receiving_t2','profit','percent_profit', 'sum_stock', 'market_value']
+    readonly_fields = ['account','partner','stock','market_price','avg_price','on_hold','receiving_t1','receiving_t2','profit','percent_profit', 'sum_stock', 'market_value']
     search_fields = ['stock','account__id','account__name']
     list_filter = ['account__name',]
     def get_queryset(self, request):
@@ -563,6 +563,10 @@ class CashTransferAdmin(admin.ModelAdmin):
     list_display = ['account','partner', 'date', 'formatted_amount', 'user_created', 'user_modified', 'created_at']
     readonly_fields = ['user_created', 'user_modified']
     search_fields = ['account__id','account__name']
+    fieldsets = (
+        ('Thông tin giao dịch', {
+            'fields': ('account', 'date', 'amount','description' )
+        }),)
     list_filter = [
         'account__name',
         'partner__name',

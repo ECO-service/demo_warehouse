@@ -193,25 +193,7 @@ class Account (models.Model):
 
                 return status
    
-    # @property
-    # def partner(self):
-    #     milestone_account = AccountMilestone.objects.filter(account=self).order_by('-created_at').first()
-    #     if milestone_account:
-    #         date_previous = milestone_account.created_at
-    #     else:
-    #         date_previous = self.created_at
-    #     first_transaction = Transaction.objects.filter(account = self,created_at__gt = date_previous).order_by('-created_at').first()
-    #     first_cash = CashTransfer.objects.filter(account = self,created_at__gt = date_previous).order_by('-created_at').first()
-    #     # Xử lý khi một trong hai là None
-    #     if first_transaction is None and first_cash:
-    #         return first_cash.partner
-    #     elif first_cash is None and first_transaction:
-    #         return first_transaction.partner
-    #     # Xác định record nào có thời gian sớm nhất
-    #     elif first_transaction and first_cash:
-    #         return first_transaction.partner if first_transaction.created_at < first_cash.created_at else first_cash.partner
-    #     else:
-    #         return None
+    
 
     def save(self, *args, **kwargs):
     # Your first save method code
@@ -268,7 +250,7 @@ class Account (models.Model):
 #Tạo model với các ngăn tất toán của tài khoản
 class AccountMilestone(models.Model):
     account = models.ForeignKey(Account,on_delete=models.CASCADE,verbose_name="Tài khoản")
-    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
+    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=False, blank= False,verbose_name="Đối tác")
     milestone = models.IntegerField(verbose_name = 'Giai đoạn')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name = 'Ngày tạo' )
     modified_at = models.DateTimeField(auto_now=True, verbose_name = 'Ngày chỉnh sửa' )
@@ -373,7 +355,7 @@ class CashTransfer(models.Model):
     modified_at = models.DateTimeField(auto_now=True, verbose_name = 'Ngày chỉnh sửa' )
     date = models.DateField( default=timezone.now,verbose_name = 'Ngày nộp tiền' )
     amount = models.FloatField(verbose_name = 'Số tiền')
-    # partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
+    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
     description = models.TextField(max_length=255, blank=True,verbose_name = 'Mô tả')
     user_created = models.ForeignKey(User,on_delete=models.CASCADE,null=True, blank= True,                   verbose_name="Người tạo")
     user_modified = models.CharField(max_length=150, blank=True, null=True,
@@ -384,15 +366,7 @@ class CashTransfer(models.Model):
     
     def __str__(self):
         return str(self.amount) 
-    @property
-    def partner(self):
-        partner = self.account.partner
-        return partner
     
-    # def clean(self):
-    #     if hasattr(self, 'account') and self.account and self.partner:
-    #         if hasattr(self.account, 'partner') and self.account.partner != self.partner:
-    #             raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
 
     def save(self, *args, **kwargs):
         if self.account.partner:
@@ -415,7 +389,7 @@ class Transaction (models.Model):
         ('sell', 'Bán'),
     ]
     account = models.ForeignKey(Account,on_delete=models.CASCADE, null=False, blank=False, verbose_name = 'Tài khoản' )
-    # partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
+    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name = 'Ngày tạo' )
     date = models.DateField( default=timezone.now,verbose_name = 'Ngày giao dịch' )
     modified_at = models.DateTimeField(auto_now=True, verbose_name = 'Ngày chỉnh sửa' )
@@ -447,11 +421,6 @@ class Transaction (models.Model):
         self._original_total_value =self.total_value
     
     def clean(self):
-
-        # if hasattr(self, 'account') and self.account and self.partner:
-        #     if hasattr(self.account, 'partner') and self.account.partner != self.partner:
-        #         raise ValidationError('Đối tác không khớp, để trống để tự nhận dạng')
-          
         if self.position == 'sell':
             port = Portfolio.objects.filter(account = self.account, stock =self.stock).first()
             stock_hold  = port.on_hold
@@ -469,11 +438,7 @@ class Transaction (models.Model):
         else:
             partner_net_total_value = self.total_value - self.tax - partner_transaction_fee
         return partner_net_total_value  
-    
-    @property
-    def partner(self):
-        partner = self.account.partner
-        return partner         
+           
 
     def save(self, *args, **kwargs):
         if self.account.partner:
@@ -567,6 +532,8 @@ class Portfolio (models.Model):
     percent_profit = models.FloatField(default=0,null=True,blank=True,verbose_name = '%Lợi nhuận')
     sum_stock =models.IntegerField(default=0,null=True,blank=True,verbose_name = 'Tổng cổ phiếu')
     market_value = models.FloatField(default=0,null=True,blank=True,verbose_name = 'Giá trị thị trường')
+    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
+    
     class Meta:
          verbose_name = 'Danh mục '
          verbose_name_plural = 'Danh mục '
@@ -580,6 +547,8 @@ class Portfolio (models.Model):
         return partner
     
     def save(self, *args, update_avg_price=True, **kwargs):
+        if self.account.partner:
+            self.partner = self.account.partner
         self.sum_stock = self.receiving_t2+ self.receiving_t1+self.on_hold 
         self.profit =0
         self.percent_profit = 0
