@@ -450,7 +450,7 @@ class PortfolioAdmin(admin.ModelAdmin):
     list_display = ['account', 'stock', 'formatted_market_price', 'formatted_avg_price', 'formatted_on_hold', 'formatted_receiving_t1', 'formatted_receiving_t2', 'formatted_profit', 'percent_profit', 'formatted_sum_stock']
     readonly_fields = ['account','partner','stock','market_price','avg_price','on_hold','receiving_t1','receiving_t2','profit','percent_profit', 'sum_stock', 'market_value']
     search_fields = ['stock','account__id','account__name']
-    list_filter = ['account__name',]
+    list_filter = ['account__name','partner__name']
     def get_queryset(self, request):
         # Chỉ trả về các bản ghi có sum_stock > 0
         return super().get_queryset(request).filter(sum_stock__gt=0)

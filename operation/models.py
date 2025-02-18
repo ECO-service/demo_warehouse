@@ -541,10 +541,6 @@ class Portfolio (models.Model):
     def __str__(self):
         return self.stock
     
-    @property
-    def partner(self):
-        partner = self.account.partner
-        return partner
     
     def save(self, *args, update_avg_price=True, **kwargs):
         if self.account.partner:
