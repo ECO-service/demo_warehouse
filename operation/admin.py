@@ -17,8 +17,15 @@ from import_export.formats.base_formats import XLSX
 from import_export.widgets import ForeignKeyWidget
 from import_export.fields import Field
 from django.utils.timezone import now
-from rangefilter.filters import DateRangeFilter
 from django.contrib.admin import DateFieldListFilter
+from rangefilter.filters import (
+    DateRangeFilterBuilder,
+    DateTimeRangeFilterBuilder,
+    NumericRangeFilterBuilder,
+    DateRangeQuickSelectListFilterBuilder,
+)
+
+
 
 
 # Register your models here.
@@ -358,7 +365,7 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     formats = [XLSX]  # Chỉ cho phép import/export định dạng XLSX
     form = TransactionForm
     list_display_links = ['stock',]
-    list_display = ['account','partner','date','stock','position','formatted_price','formatted_qty','formatted_net_total_value','created_at','user_created','formatted_transaction_fee','formatted_tax']
+    list_display = ['account','partner','date','stock','position','formatted_price','formatted_qty','formatted_total_value','created_at','user_created','formatted_transaction_fee','formatted_tax']
     readonly_fields = ['user_created','user_modified','transaction_fee','tax','total_value','net_total_value']
     fieldsets = (
         ('Thông tin giao dịch', {
@@ -371,7 +378,7 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
         'account__name',
         'stock__stock',
         'partner',
-        ('date', DateRangeFilter),  # Bộ lọc ngày từ ngày - đến ngày
+        ('date', DateFieldListFilter),  # Bộ lọc ngày từ ngày - đến ngày
     ]
     
     def get_readonly_fields(self, request, obj=None):
@@ -432,8 +439,8 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     def formatted_qty(self, obj):
         return self.formatted_number(obj.qty)
     
-    def formatted_net_total_value(self, obj):
-        return self.formatted_number(obj.net_total_value)
+    def formatted_total_value(self, obj):
+        return self.formatted_number(obj.total_value)
 
     # Add other formatted_* methods for other numeric fields
 
@@ -441,7 +448,7 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
     formatted_tax.short_description = 'Thuế'
     formatted_price.short_description = 'Giá'
     formatted_qty.short_description = 'Khối lượng'
-    formatted_net_total_value.short_description = 'Giá trị giao dịch ròng'
+    formatted_total_value.short_description = 'Giá trị giao dịch'
 
 admin.site.register(Transaction,TransactionAdmin)
 
@@ -546,18 +553,9 @@ class CashTransferForm(forms.ModelForm):
         model = CashTransfer
         exclude = ['user_created', 'user_modified']
 
-    # def clean(self):
-    #     cleaned_data = super().clean()
-    #     change = self.instance.pk is not None  # Kiểm tra xem có phải là sửa đổi không
+from django.utils.translation import gettext_lazy as _
 
-    #     today = timezone.now().date()
-
-    #     # Kiểm tra quyền
-    #     if change and self.instance.created_at.date() != today:
-    #         raise ValidationError("Bạn không có quyền sửa đổi các bản ghi được tạo ngày trước đó.")
-
-    #     return cleaned_data
-
+    
 class CashTransferAdmin(admin.ModelAdmin):
     form  = CashTransferForm
     list_display = ['account','partner', 'date', 'formatted_amount', 'user_created', 'user_modified', 'created_at']
@@ -570,8 +568,9 @@ class CashTransferAdmin(admin.ModelAdmin):
     list_filter = [
         'account__name',
         'partner__name',
-        ('date', DateRangeFilter),  # Bộ lọc ngày từ ngày - đến ngày
+        ('date',  DateRangeFilterBuilder()),  #  # Bộ lọc ngày từ ngày - đến ngày
     ]
+    
     
 
     def get_readonly_fields(self, request, obj=None):

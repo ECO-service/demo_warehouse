@@ -56,7 +56,7 @@ def cal_avg_price(account,stock, date_time):
         # fifo.profit_and_loss tính lời lỗ
     return fifo.avgcost
 
-def total_value_inventory_stock(account,ratio_trading_fee, stock, start_date, end_date,partner=None):
+def total_value_inventory_stock(account, stock, start_date, end_date,partner=None):
     filter_conditions = {'account': account, 'stock__stock': stock, 'created_at__gt': start_date, 'date__lte': end_date}
     if partner:
         filter_conditions['partner'] = partner
@@ -80,7 +80,7 @@ def total_value_inventory_stock(account,ratio_trading_fee, stock, start_date, en
         margin_rate = StockListMargin.objects.filter(stock=stock).first().initial_margin_requirement
         ratio_margin_rate = max(1 - (margin_rate - 20) / 100, 0)
         #tính tổng số tiền tính lãi vay có bao gồm phí giao dịch => đã bỏ phí giao dịch
-        total_value += quantity * price *ratio_margin_rate #*(1+ratio_trading_fee)
+        total_value += quantity * price *ratio_margin_rate 
         
     return total_value
 
@@ -429,16 +429,6 @@ class Transaction (models.Model):
             if self.qty > max_sellable_qty:
                     raise ValidationError({'qty': f'Không đủ cổ phiếu bán, tổng cổ phiếu khả dụng là {max_sellable_qty}'})        
 
-    @property
-    def partner_net_total_value(self):
-        ratio_transaction_fee = self.partner.ratio_trading_fee
-        partner_transaction_fee = self.total_value * ratio_transaction_fee
-        if self.position == 'buy':
-            partner_net_total_value = -self.total_value - partner_transaction_fee - self.tax
-        else:
-            partner_net_total_value = self.total_value - self.tax - partner_transaction_fee
-        return partner_net_total_value  
-           
 
     def save(self, *args, **kwargs):
         if self.account.partner:
@@ -447,11 +437,10 @@ class Transaction (models.Model):
         self.total_value = self.price*self.qty
         self.transaction_fee = self.total_value*self.account.transaction_fee
         if self.position == 'buy':
-            self.tax =0
-            self.net_total_value = -self.total_value-self.transaction_fee-self.tax
+            self.tax =0    
         else:
             self.tax = self.total_value*self.account.tax
-            self.net_total_value = self.total_value-self.transaction_fee-self.tax
+        self.net_total_value = -self.total_value-self.transaction_fee-self.tax
         #lưu giá trị trước chỉnh sửa
         is_new = self._state.adding
         if is_new and self.account.cpd:

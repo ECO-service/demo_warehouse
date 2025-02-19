@@ -248,26 +248,13 @@ def update_market_price_port(sender, instance, created, **kwargs):
 
             
 # Các hàm cập nhập cho account và port
-def define_interest_cash_balace(account,start_date, end_date=None,account_partner=None):
+def define_interest_cash_balace(account,start_date, end_date=None):
     interest_cash_balance =0
     if end_date is None:
         end_date = datetime.now().date()
-    if account_partner:
-        partner = account_partner.partner
-        all_port = PortfolioPartner.objects.filter(account=account_partner,sum_stock__gt=0)
-        ratio_trading_fee =account_partner.partner.ratio_trading_fee
-        for item in all_port:
-            interest_cash_balance += (total_value_inventory_stock (account,ratio_trading_fee,item.stock,start_date,end_date,partner=partner))*-1
-        if partner.method_interest =='dept':
-            
-            interest_cash_balance = interest_cash_balance + account_partner.net_cash_flow
-            if interest_cash_balance >0:
-                interest_cash_balance=0
-    else:
-        all_port = Portfolio.objects.filter(account=account, sum_stock__gt=0)
-        ratio_trading_fee = account.transaction_fee
-        for item in all_port:
-            interest_cash_balance += (total_value_inventory_stock (account,ratio_trading_fee,item.stock,start_date,end_date))*-1
+    all_port = Portfolio.objects.filter(account=account, sum_stock__gt=0)
+    for item in all_port:
+        interest_cash_balance += (total_value_inventory_stock (account,item.stock,start_date,end_date))*-1
     return interest_cash_balance
 
 
@@ -276,7 +263,10 @@ def created_transaction(instance, portfolio, account,date_mileston):
             #điều chỉnh account
             account.net_trading_value += instance.net_total_value # Dẫn tới thay đổi cash_balace, nav, pl
             account.total_buy_trading_value+= instance.net_total_value #Dẫn tới thay đổi interest_cash_balance 
-            account.interest_cash_balance += instance.net_total_value
+            #Tìm tỷ lê cho vay để tính giá trị cho vay theo phần 5 của vlc
+            margin_rate = StockListMargin.objects.filter(stock=instance.stock).first().initial_margin_requirement
+            ratio_margin_rate = max(1 - (margin_rate - 20) / 100, 0)
+            account.interest_cash_balance += instance.total_value*ratio_margin_rate
             if portfolio:
                 # điều chỉnh danh mục
                     portfolio.receiving_t2 = portfolio.receiving_t2 + instance.qty 
@@ -307,9 +297,7 @@ def created_transaction(instance, portfolio, account,date_mileston):
     
     
     
-                
-
-            
+                   
 def update_portfolio_transaction(instance,transaction_items, portfolio):
     #sửa danh mục
     stock_transaction = transaction_items.filter(stock = instance.stock)
@@ -339,18 +327,17 @@ def update_portfolio_transaction(instance,transaction_items, portfolio):
 # thay đổi sổ lệnh sẽ thay đổi trực tiếp cash_t0 và total_buy_trading_value, net_trading_value
 def update_account_transaction(account, transaction_items,date_mileston):
     item_all_sell = transaction_items.filter( position = 'sell')
-    cash_t2 = 0
-    cash_t1 = 0
-    cash_t0 =0
-    total_value_buy= sum(i.net_total_value for i in transaction_items if i.position =='buy')
-    today  = datetime.now().date()     
-    for item in item_all_sell:
-        if define_t_plus(item.date,today) == 0:
-            cash_t2 += item.total_value 
-        elif define_t_plus(item.date, today) == 1:
-            cash_t1+= item.total_value 
-        else:
-            cash_t0 += item.total_value 
+    cash_t2, cash_t1,cash_t0 = 0,0,0
+    total_value_buy= sum(i.total_value for i in transaction_items if i.position =='buy')
+    today  = datetime.now().date()  
+    if item_all_sell:
+        for item in item_all_sell:
+            if define_t_plus(item.date,today) == 0:
+                cash_t2 += item.total_value 
+            elif define_t_plus(item.date, today) == 1:
+                cash_t1+= item.total_value 
+            else:
+                cash_t0 += item.total_value 
     account.cash_t2 = cash_t2
     account.cash_t1 = cash_t1
     account.cash_t0 = cash_t0
@@ -622,7 +609,7 @@ def save_field_account_1(sender, instance, **kwargs):
            
             #tạo lệnh lệnh tiền tk bank tư động
             if instance.amount >0:
-                description=f"Lệnh nạp tiền tự động từ KH {instance.account}"
+                description=f"Lệnh nạp tiền từ KH {instance.account}"
             else:
                 if account.excess_equity > 0 and account.margin_ratio > 0.15 and account.nav > 0:
                     description = "Lệnh rút tiền hợp lệ\n"
