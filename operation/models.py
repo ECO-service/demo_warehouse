@@ -157,6 +157,7 @@ class Account (models.Model):
     # credit_limit = models.FloatField(default=get_credit_limit_default, verbose_name='Hạn mức mua')
     credit_limit = models.FloatField(default=1000000000, verbose_name='Hạn mức mua')
     milestone_date_lated = models.DateTimeField(null =True, blank =True, verbose_name = 'Ngày tất toán gần nhất')
+    book_interest_date_lated = models.DateTimeField(null =True, blank =True, verbose_name = 'Ngày hoạch toán lãi gần nhất')
     advance_cash_balance= models.FloatField(default=0,verbose_name= 'Số dư tiền tính phí ứng')
     class Meta:
          verbose_name = 'Tài khoản'

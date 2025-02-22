@@ -21,6 +21,7 @@ class BankCashTransfer(models.Model):
     date = models.DateField( default=timezone.now,verbose_name = 'Ngày giao dịch' )
     amount = models.FloatField(verbose_name = 'Số tiền')
     type = models.CharField(max_length=20, choices=TYPE_CHOICES, null=False, blank=False,verbose_name = 'Loại giao dịch')
+    account = models.ForeignKey(Account,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Tài khoản")
     description = models.TextField(max_length=255, blank=True,verbose_name = 'Mô tả')
     user_created = models.ForeignKey(User,on_delete=models.CASCADE,null=True, blank= True, verbose_name="Người tạo")
     user_modified = models.CharField(max_length=150, blank=True, null=True,
