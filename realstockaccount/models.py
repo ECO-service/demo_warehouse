@@ -11,8 +11,8 @@ import logging
   
 class BankCashTransfer(models.Model):
     TYPE_CHOICES = [
-        ('cash_in', 'Nạp tiền mặt'),
-        ('cash_out', 'Rút tiền mặt')
+        ('cash_in', 'Ghi có'),
+        ('cash_out', 'Ghi nợ')
         
     ]
     partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,verbose_name="Đối tác")

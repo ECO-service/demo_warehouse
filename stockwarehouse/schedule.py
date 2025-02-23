@@ -13,13 +13,14 @@ def schedule_morning():
         try:
             check_dividend_and_notify()
         except Exception as e_check_dividend:
-            print(f"An error occurred while running check_dividend: {e_check_dividend}")
+            message = f"An error occurred while running check_dividend: {e_check_dividend}"
+            send_notification( message)
         
         try:
             pay_money_back()
         except Exception as e_auto_news:
-            print(f"An error occurred while running auto_news_stock_worlds: {e_auto_news}")
-
+            message = f"An error occurred while running auto_news_stock_worlds: {e_auto_news}"
+            send_notification( message)
     else:
         pass
 
@@ -35,15 +36,26 @@ def schedule_mid_trading_date():
             atternoon_check()
             
         except Exception as e_afternoon_check:
-            print(f"An error occurred while running atternoon_check: {e_afternoon_check}")
+            message = f"An error occurred while running atternoon_check: {e_afternoon_check}"
+            send_notification( message)
         
         try:
             check_dividend_recevie()
         except Exception as e_get_info_stock:
-            print(f"An error occurred while running get_info_stock_price_filter: {e_get_info_stock}")
+            message = f"An error occurred while running get_info_stock_price_filter: {e_get_info_stock}"
+            send_notification( message)
 
     else:
         pass
+
+def schedule_after_trading_date():
+    try:
+        run_booked_fee_interest()        
+    except Exception as run_booked_fee_interest:
+            message = f"An error occurred while run_booked_fee_interest: {run_booked_fee_interest}"
+            send_notification( message)
+    
+    
 
 def run_get_list_and_save_stock_price():
     stock_list = Portfolio.objects.values_list('stock', flat=True).distinct()

@@ -40,7 +40,7 @@ class MyChangeList1(ChangeList):
         return "{:,.0f}".format(total_amount,0)
 
     def get_queryset(self, request):
-        queryset = super().get_queryset(request).filter(type='trade_transfer')
+        queryset = super().get_queryset(request).filter(type__in=['cash_in','cash_out'])
         self.total_amount = self.get_total_amount(queryset)
         return queryset
     

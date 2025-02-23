@@ -46,13 +46,13 @@ class AccountAdmin(admin.ModelAdmin):
         ('Thông tin cơ bản', {'fields': ['name','partner','cpd','user_created','description']}),
         ('Biểu phí tài khoản', {'fields': ['interest_fee', 'transaction_fee', 'tax','credit_limit','maintenance_margin_ratio','force_sell_margin_ratio']}),
         ('Trạng thái tài khoản', {'fields': ['cash_balance', 'interest_cash_balance','advance_cash_balance','net_cash_flow','net_trading_value','market_value','nav','initial_margin_requirement','margin_ratio','excess_equity','custom_status_display','milestone_date_lated']}),
-        ('Thông tin lãi và phí ứng', {'fields': ['total_loan_interest','total_interest_paid','total_temporarily_interest','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee']}),
+        ('Thông tin lãi và phí ứng', {'fields': ['total_loan_interest','total_interest_paid','total_temporarily_interest','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee','book_interest_date_lated']}),
         ('Hiệu quả đầu tư', {'fields': ['total_pl','total_closed_pl','total_temporarily_pl',]}),
         ('Thành phần số dư tiền tính lãi', {'fields': ['cash_t0','cash_t1','cash_t2','total_buy_trading_value']}),
     ]
     readonly_fields = ['cash_balance', 'market_value', 'nav', 'margin_ratio', 'excess_equity', 'user_created', 'initial_margin_requirement', 'net_cash_flow', 'net_trading_value', 'custom_status_display','cash_t2','cash_t1',
                        'excess_equity', 'interest_cash_balance' , 'total_loan_interest','total_interest_paid','total_temporarily_interest','total_pl','total_closed_pl','total_temporarily_pl', 'user_modified',
-                       'cash_t0','total_buy_trading_value','milestone_date_lated','advance_cash_balance','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee'
+                       'cash_t0','total_buy_trading_value','milestone_date_lated','advance_cash_balance','total_advance_fee','total_advance_fee_paid','total_temporarily_advance_fee','book_interest_date_lated'
                        ]
     search_fields = ['id','name']
     list_filter = ['name','partner__name']
@@ -93,7 +93,7 @@ class AccountAdmin(admin.ModelAdmin):
         return self.formatted_number(obj.total_temporarily_pl)
     # Add other formatted_* methods for other numeric fields
 
-    actions = ['select_account_settlement']
+    actions = ['select_account_settlement','select_account_booked_interest']
 
     def interest_payments(self, obj):
         # Display a custom button in the admin list view with arrow formatting
@@ -118,6 +118,21 @@ class AccountAdmin(admin.ModelAdmin):
             self.message_user(request, 'Bạn chưa có quyền thực hiện nghiệp vụ này.', level='ERROR')
 
     select_account_settlement.short_description = 'Tất toán tài khoản'
+
+    def select_account_booked_interest(self, request, queryset):
+         # Check if the user is a superuser
+        if request.user.is_superuser:
+            # Custom action to reset selected accounts
+            for account in queryset:
+                status = booking_fee_interest(account)
+                if status == True:
+                    self.message_user(request, f'Đã hoạch toán {queryset.count()} tài khoản đã chọn.')
+                else:
+                    self.message_user(request, 'Tài khoản chưa đủ điều kiện để hoạch toán', level='ERROR')
+        else:
+            self.message_user(request, 'Bạn chưa có quyền thực hiện nghiệp vụ này.', level='ERROR')
+
+    select_account_booked_interest.short_description = 'Hoạch toán lãi tài khoản'
 
     
     formatted_cash_balance.short_description = 'Số dư tiền'
@@ -405,13 +420,6 @@ class TransactionAdmin(ImportExportModelAdmin, admin.ModelAdmin):
                     else:
                         super().save_model(request, obj, form, change)
                         if obj.total_value != obj.previous_total_value or obj.previous_date != obj.date:
-                            # Chạy lại phí tk tổng
-                            delete_and_recreate_account_expense(obj.account)
-                            # Chạy lại phí tk con
-                            if obj.partner.method_interest =='total_buy_value':
-                                account_partner = AccountPartner.objects.filter(account = obj.account, partner = obj.partner).first()
-                                if account_partner:
-                                    delete_and_recreate_account_partner_expense(obj.account, account_partner)
                             # Thêm dòng cảnh báo cho siêu người dùng
                             messages.warning(request, "Sao kê phí lãi vay đã được cập nhật.")
                 else:
