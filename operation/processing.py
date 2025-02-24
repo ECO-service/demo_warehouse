@@ -311,7 +311,7 @@ def add_list_when_buy(list_data,value_buy, date_interest,interest_cash_balance,a
 
 
 
-def create_expense_list_when_edit_transaction(account,account_partner=None):
+def create_expense_list_when_edit_transaction(account):
     end_date = datetime.now().date() - timedelta(days=1)
     interest_fee =account.interest_fee
     trading_fee =account.transaction_fee
@@ -321,10 +321,6 @@ def create_expense_list_when_edit_transaction(account,account_partner=None):
     else:
         date_previous = account.created_at
     filter_params = {'account': account}
-    if account_partner is not None:
-        filter_params['partner'] = account_partner.partner
-        interest_fee = account_partner.partner.ratio_interest_fee
-        trading_fee= account_partner.partner.ratio_trading_fee
     transaction_items_merge_date = (
         Transaction.objects
         .filter(**filter_params, created_at__gt=date_previous)
@@ -385,8 +381,8 @@ def create_expense_list_when_edit_transaction(account,account_partner=None):
                     'advance_cash_balance': previous_entry['advance_cash_balance'],
                     'advance_fee':previous_entry['advance_fee']}
                 new_data.append(new_entry)
-    new_data.sort(key=lambda x: x['date'])
-    return new_data
+        new_data.sort(key=lambda x: x['date'])
+        return new_data
 
 def delete_and_recreate_account_expense(account):
     expense_list= create_expense_list_when_edit_transaction(account)
@@ -472,7 +468,7 @@ def save_field_account_1(sender, instance, **kwargs):
                 update_expense_transaction(instance,'tax' )
                 update_expense_transaction(instance, 'advance_fee')
             # sửa sao kê lãi
-            if instance.total_value != instance.previous_total_value or instance.previous_date != instance.date:
+            if (instance.total_value != instance.previous_total_value or instance.previous_date != instance.date) and instance.date != timezone.now().date():
                 delete_and_recreate_account_expense(account)    
                 date_edit = instance.date +timedelta(days=1)
                 update_interest_expense(account,date_edit)

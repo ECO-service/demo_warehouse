@@ -116,7 +116,7 @@ class PartnerInfo(models.Model):
 # Create your models here.
 class Account (models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name= 'Tên Khách hàng')
-    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=True, blank= True,verbose_name="Đối tác")
+    partner = models.ForeignKey(PartnerInfo,on_delete=models.CASCADE,null=False, blank= False,verbose_name="Đối tác")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name = 'Ngày tạo' )
     modified_at = models.DateTimeField(auto_now=True, verbose_name = 'Ngày chỉnh sửa' )
     description = models.TextField(max_length=255, blank=True, verbose_name= 'Mô tả')
