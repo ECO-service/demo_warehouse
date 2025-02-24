@@ -542,7 +542,8 @@ class Portfolio (models.Model):
             if update_avg_price and self.market_price==0:
                 self.market_price = get_stock_market_price(str(self.stock))
             else:
-                self.market_price = StockPriceFilter.objects.filter(ticker=self.stock).order_by('-date').first().close
+                market_price = StockPriceFilter.objects.filter(ticker=self.stock).order_by('-date').first()
+                self.market_price = market_price.close if market_price else 0
             if self.account.milestone_date_lated:
                 date_cal = self.account.milestone_date_lated
             else:
